@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: money_manager
+      POSTGRES_PASSWORD: money_manager
+      POSTGRES_DB: money_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U money_manager -d money_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ocr:
+    build:
+      context: ./apps/ocr
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      OCR_LANGUAGES: pt,en
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://money_manager:money_manager@postgres:5432/money_manager
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    depends_on:
+      - api
+
+  bot:
+    build:
+      context: .
+      dockerfile: apps/bot/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_ALLOWED_CHAT_ID: ${TELEGRAM_ALLOWED_CHAT_ID:-}
+      BOT_PORT: 3002
+      API_INTERNAL_URL: http://api:3001
+      OCR_SERVICE_URL: http://ocr:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal}
+    depends_on:
+      - api
+      - ocr
+
+volumes:
+  pgdata:
