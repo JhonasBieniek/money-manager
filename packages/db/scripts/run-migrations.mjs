@@ -18,12 +18,61 @@ function logTargetDb(connectionString) {
   try {
     const u = new URL(connectionString.replace(/^postgresql:/i, "http:"));
     const dbName = u.pathname.replace(/^\//, "").split("/")[0] || "(default)";
+    const user = decodeURIComponent(u.username || "");
     console.log(
-      `run-migrations: target host=${u.hostname} port=${u.port || "5432"} db=${dbName}`
+      `run-migrations: target host=${u.hostname} port=${u.port || "5432"} db=${dbName} user=${user || "(none)"}`
     );
   } catch {
     console.log("run-migrations: target (parse URL failed, check DATABASE_URL)");
   }
+}
+
+async function logSessionIdentity(pool) {
+  const {
+    rows: [row],
+  } = await pool.query(
+    `select current_database() as db, current_user as role, session_user as session`
+  );
+  console.log(
+    `run-migrations: session db=${row.db} current_user=${row.role} session_user=${row.session}`
+  );
+}
+
+async function countPublicBaseTables(pool) {
+  const {
+    rows: [{ n }],
+  } = await pool.query(`
+    select count(*)::int as n
+    from information_schema.tables
+    where table_schema = 'public' and table_type = 'BASE TABLE'
+  `);
+  return n ?? 0;
+}
+
+async function countDrizzleMetaRows(pool) {
+  try {
+    const {
+      rows: [{ n }],
+    } = await pool.query(
+      `select count(*)::int as n from drizzle.__drizzle_migrations`
+    );
+    return n ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function hasPublicUsersTable(pool) {
+  const {
+    rows: [{ n }],
+  } = await pool.query(`
+    select count(*)::int as n
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'users'
+      and table_type = 'BASE TABLE'
+  `);
+  return (n ?? 0) > 0;
 }
 
 const pool = new pg.Pool({ connectionString: url });
@@ -33,66 +82,63 @@ try {
   logTargetDb(url);
   console.log(`run-migrations: migrationsFolder=${migrationsFolder}`);
 
-  let journalEntries = [];
   try {
     const journal = JSON.parse(
       readFileSync(join(migrationsFolder, "meta", "_journal.json"), "utf8")
     );
-    journalEntries = journal.entries ?? [];
+    const entries = journal.entries ?? [];
     console.log(
-      `run-migrations: journal entries=${journalEntries.length} tags=${journalEntries.map((e) => e.tag).join(", ")}`
+      `run-migrations: journal entries=${entries.length} tags=${entries.map((e) => e.tag).join(", ")}`
     );
   } catch (e) {
     console.error("run-migrations: could not read meta/_journal.json", e);
     process.exit(1);
   }
 
-  let metaBefore = [];
-  try {
-    const { rows } = await pool.query(
-      `select id, hash, created_at from drizzle.__drizzle_migrations order by created_at asc`
+  await logSessionIdentity(pool);
+
+  const metaBefore = await countDrizzleMetaRows(pool);
+  const publicTablesBefore = await countPublicBaseTables(pool);
+  const usersBefore = await hasPublicUsersTable(pool);
+
+  if (metaBefore > 0) {
+    console.log(
+      `run-migrations: drizzle.__drizzle_migrations rows=${metaBefore} public base tables=${publicTablesBefore} public.users=${usersBefore}`
     );
-    metaBefore = rows;
-    if (rows.length) {
-      console.log(
-        `run-migrations: drizzle.__drizzle_migrations before migrate: ${rows.length} row(s)`
-      );
-    }
-  } catch {
-    // schema/tabela ainda não existem — esperado na primeira carga
+  }
+
+  // Drizzle pula o DDL se já existe linha com created_at >= when do journal, mesmo sem tabelas em public.
+  if (metaBefore > 0 && !usersBefore) {
+    console.warn(
+      "run-migrations: meta órfã (registros em drizzle mas sem public.users); DROP SCHEMA drizzle CASCADE e reaplicando"
+    );
+    await pool.query(`drop schema if exists drizzle cascade`);
   }
 
   await migrate(db, { migrationsFolder });
 
-  const { rows: metaAfter } = await pool.query(
-    `select id, hash, created_at from drizzle.__drizzle_migrations order by created_at asc`
-  );
+  const metaAfter = await countDrizzleMetaRows(pool);
+  const publicTablesAfter = await countPublicBaseTables(pool);
   console.log(
-    `run-migrations: drizzle.__drizzle_migrations after migrate: ${metaAfter.length} row(s)`
+    `run-migrations: after migrate meta_rows=${metaAfter} public_base_tables=${publicTablesAfter}`
   );
 
-  const { rows: usersCheck } = await pool.query(`
-    select exists(
-      select 1 from information_schema.tables
-      where table_schema = 'public' and table_name = 'users'
-    ) as ok
-  `);
-
-  if (!usersCheck[0]?.ok) {
+  const usersOk = await hasPublicUsersTable(pool);
+  if (!usersOk) {
     console.error(
-      "run-migrations: public.users não existe após migrate. Possíveis causas:"
+      "run-migrations: public.users não existe após migrate. Verifique:"
     );
     console.error(
-      "  - DATABASE_URL aponta para outro banco/host do que você inspeciona no cliente SQL."
+      "  - Mesmo host/db/user que no Coolify (veja logs session db/current_user acima)."
     );
     console.error(
-      "  - Há linhas em drizzle.__drizzle_migrations com created_at igual ao 'when' do journal; o Drizzle pula o SQL nesse caso (use: DROP SCHEMA drizzle CASCADE; e rode de novo, ou restaure o banco limpo)."
+      "  - No cliente SQL: use o mesmo usuário de DATABASE_URL; information_schema só lista tabelas acessíveis ao role da sessão."
     );
-    console.error("  - Estado atual meta:", JSON.stringify(metaAfter));
+    console.error("  - Se meta voltou órfã, inspecione logs e volume do Postgres.");
     process.exit(1);
   }
 
-  console.log("run-migrations: ok (public.users presente)");
+  console.log("run-migrations: ok (public.users existe; contagem via information_schema)");
 } finally {
   await pool.end();
 }
