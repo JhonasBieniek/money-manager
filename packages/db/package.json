@@ -17,6 +17,7 @@
     "lint": "eslint src --max-warnings 0",
     "db:generate": "pnpm run build && drizzle-kit generate --schema ./dist/schema/index.js --dialect postgresql --out ./migrations",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:runtime": "node ./scripts/run-migrations.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run"

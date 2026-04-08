@@ -26,6 +26,7 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       DATABASE_URL: postgresql://money_manager:money_manager@postgres:5432/money_manager
+      RUN_DB_MIGRATIONS: "true"
       API_HOST: 0.0.0.0
       API_PORT: 3001
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}

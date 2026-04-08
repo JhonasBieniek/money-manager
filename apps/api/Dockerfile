@@ -27,5 +27,8 @@ COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/api ./apps/api
 COPY --from=build /app/tsconfig.base.json ./tsconfig.base.json
 
+COPY apps/api/docker-entrypoint.sh /app/apps/api/docker-entrypoint.sh
+RUN chmod +x /app/apps/api/docker-entrypoint.sh
+
 EXPOSE 3001
-CMD ["node", "apps/api/dist/server.js"]
+ENTRYPOINT ["/app/apps/api/docker-entrypoint.sh"]
