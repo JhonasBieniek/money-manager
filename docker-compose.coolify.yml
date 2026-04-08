@@ -3,8 +3,10 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: money_manager
-      POSTGRES_PASSWORD: money_manager
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-money_manager}
       POSTGRES_DB: money_manager
+    ports:
+      - "${POSTGRES_PUBLISH_PORT:-15432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +27,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
-      DATABASE_URL: postgresql://money_manager:money_manager@postgres:5432/money_manager
+      DATABASE_URL: postgresql://money_manager:${POSTGRES_PASSWORD:-money_manager}@postgres:5432/money_manager
       RUN_DB_MIGRATIONS: "true"
       API_HOST: 0.0.0.0
       API_PORT: 3001
