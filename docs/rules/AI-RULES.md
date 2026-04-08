@@ -30,7 +30,7 @@ Ao usar um refresh token, o anterior é imediatamente marcado como revoked_at = 
 Erros retornados ao cliente são sempre genéricos. Detalhes técnicos só existem nos logs do servidor, nunca na resposta HTTP.
 
 ### Bot
-TELEGRAM_ALLOWED_CHAT_ID é uma variável de ambiente obrigatória. O bot rejeita silenciosamente qualquer mensagem que não venha desse chat_id. Não há registro de usuário via bot — o bot opera com um API key interno que o identifica como serviço confiável.
+O cadastro na web é apenas email + senha. O vínculo com o Telegram usa token temporário: o web gera um registro em `telegram_link_tokens` válido por 15 minutos (`expires_at`) e com uso único (`used_at`). O usuário envia `/start <token>` ao bot; o bot valida o token (`expires_at > NOW()` e `used_at IS NULL` com `SELECT ... FOR UPDATE`), cria `telegram_accounts` com `chat_id` e `username` do Telegram, marca `used_at = NOW()` e responde de forma genérica em caso de falha. Cada `users.id` tem no máximo uma linha em `telegram_accounts` (`user_id` UNIQUE). O bot chama a API interna autenticada por `INTERNAL_API_KEY` (header `x-internal-api-key`); o bot não acessa o banco diretamente.
 O update_id de cada mensagem do Telegram é usado como idempotency_key na tabela expenses. Uma inserção duplicada (webhook entregue duas vezes) é detectada pela unique constraint e silenciosamente ignorada.
 O OCR retorna um score de confiança. Acima de 0.80, a despesa é salva automaticamente e o bot confirma. Abaixo de 0.80, o bot exibe o que entendeu e aguarda confirmação do usuário antes de salvar.
 

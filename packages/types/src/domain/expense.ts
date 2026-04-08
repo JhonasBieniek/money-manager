@@ -1,13 +1,16 @@
+import type { ExpenseSource, OcrStatus, PaymentMethod } from "./enums.js";
+
 export interface Expense {
   id: string;
   userId: string;
-  categoryId: string;
+  categoryId: string | null;
   amountCents: number;
-  description: string | null;
+  description: string;
   establishment: string | null;
-  paymentMethod: string | null;
+  paymentMethod: PaymentMethod;
   cardLastFour: string | null;
-  source: string | null;
+  source: ExpenseSource;
+  ocrStatus: OcrStatus | null;
   idempotencyKey: string | null;
   ocrRaw: unknown;
   occurredAt: Date;

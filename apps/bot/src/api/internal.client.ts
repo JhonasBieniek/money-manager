@@ -14,5 +14,11 @@ export function createInternalClient(config: InternalClientConfig) {
       const url = `${config.apiBaseUrl.replace(/\/$/, "")}${path}`;
       return fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     },
+    async getJson(pathWithQuery: string): Promise<Response> {
+      const url = `${config.apiBaseUrl.replace(/\/$/, "")}${pathWithQuery.startsWith("/") ? pathWithQuery : `/${pathWithQuery}`}`;
+      return fetch(url, { method: "GET", headers });
+    },
   };
 }
+
+export type InternalApiClient = ReturnType<typeof createInternalClient>;

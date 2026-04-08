@@ -17,6 +17,7 @@
     "@money-manager/db": "workspace:*",
     "@money-manager/types": "workspace:*",
     "@money-manager/utils": "workspace:*",
+    "drizzle-orm": "^0.39.3",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
     "fastify-plugin": "^5.0.1",

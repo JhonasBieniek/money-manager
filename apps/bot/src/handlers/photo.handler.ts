@@ -1,15 +1,31 @@
 import type { Context } from "grammy";
+import type { InternalApiClient } from "../api/internal.client.js";
 import { runOcrOnImageBytes } from "../services/ocr.service.js";
 import { parseBankNotification } from "../services/parser.service.js";
 
 export type PhotoHandlerEnv = {
   ocrServiceUrl: string;
+  internal: InternalApiClient;
 };
 
 export async function handlePhoto(
   ctx: Context,
   env: PhotoHandlerEnv
 ): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) {
+    await ctx.reply("Não foi possível identificar o chat.");
+    return;
+  }
+
+  const linked = await env.internal.getJson(
+    `/v1/internal/telegram/account?chatId=${encodeURIComponent(String(chatId))}`
+  );
+  if (!linked.ok) {
+    await ctx.reply("Vincule sua conta primeiro com /start e o código do site.");
+    return;
+  }
+
   const photos = ctx.message?.photo;
   if (!photos?.length) {
     await ctx.reply("Não foi possível ler a foto.");

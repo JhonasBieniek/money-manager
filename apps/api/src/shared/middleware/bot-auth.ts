@@ -8,11 +8,10 @@ export async function requireBotApiKey(
 ): Promise<void> {
   const expected = process.env.INTERNAL_API_KEY;
   if (!expected) {
-    await reply.status(500).send({ error: "Internal error" });
-    return;
+    return reply.status(500).send({ error: "Internal error" });
   }
   const key = request.headers[HEADER];
   if (typeof key !== "string" || key !== expected) {
-    await reply.status(401).send({ error: "Unauthorized" });
+    return reply.status(401).send({ error: "Unauthorized" });
   }
 }
