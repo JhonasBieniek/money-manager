@@ -1,4 +1,0 @@
-- O usuario deverá poder se cadastrar no sistema apenas com nome, email e senha
-- Não retorne dados especificos da autenticação na resposta da request de login, a resposta da request deve ser sempre algo como "Email/Senha incorreto" e nunca "E-mail inválido" ou "Senha incorreta para este e-mail"
-- Deverá ser verificado se o email é valido de forma simples, sem código de confirmação.
-- Todos os campos devem conter limitação de caracteres de ponta a ponta para não permitir valores gigantescos

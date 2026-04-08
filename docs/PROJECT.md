@@ -44,7 +44,7 @@ HTTPS termina no proxy reverso do stack (Traefik via Coolify). Serviços exposto
 
 Pool de conexões: driver `pg` com pool na API; **PgBouncer é opcional** na mesma VPS se quiser limitar conexões ao Postgres — não há dependência de PaaS.
 
-**Migrations no deploy:** a imagem da API (`apps/api/Dockerfile`) usa `docker-entrypoint.sh`, que executa `pnpm --filter @money-manager/db run db:migrate:runtime` (script `packages/db/scripts/run-migrations.mjs`, Drizzle migrator) quando `DATABASE_URL` está definida e `RUN_DB_MIGRATIONS` não é `false`. Variável `RUN_DB_MIGRATIONS=false` evita corrida se você escalar a API para várias instâncias — nesse caso rode migrations uma vez por deploy (comando único no Coolify ou job) apontando o mesmo `DATABASE_URL`.
+**Migrations no deploy:** a imagem da API (`apps/api/Dockerfile`) usa `docker-entrypoint.sh`, que executa `pnpm --filter @money-manager/db run db:migrate:runtime` (script `packages/db/scripts/run-migrations.mjs`, Drizzle migrator) quando `DATABASE_URL` está definida e `RUN_DB_MIGRATIONS` não é `false`. O script confere se `public.users` existe após o migrate e falha com mensagem explícita se o Drizzle tiver registrado migração em `drizzle.__drizzle_migrations` mas o DDL não tiver rodado (ex.: volume reutilizado, reset só do schema `public` ou URL de banco diferente da que você inspeciona). Nesse caso: alinhar `DATABASE_URL` ou `DROP SCHEMA drizzle CASCADE` num banco descartável e redeploy. `RUN_DB_MIGRATIONS=false` evita corrida se você escalar a API para várias instâncias — nesse caso rode migrations uma vez por deploy (comando único no Coolify ou job) apontando o mesmo `DATABASE_URL`.
 
 ### Fundamentos de segurança
 
