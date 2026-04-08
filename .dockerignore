@@ -10,3 +10,11 @@ node_modules
 coverage
 **/*.md
 docs
+**/*.test.ts
+**/*.spec.ts
+**/vitest.config.*
+**/.pytest_cache
+**/__pycache__
+**/.cursor
+**/playwright-report
+**/test-results

@@ -4,14 +4,19 @@ RUN corepack enable && corepack prepare pnpm@10.6.5 --activate
 WORKDIR /app
 
 FROM base AS build
+ENV TURBO_TELEMETRY_DISABLED=1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY apps/bot/package.json ./apps/bot/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 COPY apps/bot ./apps/bot
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
-RUN pnpm exec turbo run build --filter=@money-manager/bot
+RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
+    --mount=type=cache,id=money-manager-turbo,target=/app/.turbo \
+    pnpm exec turbo run build --filter=@money-manager/bot
 
 FROM base AS runner
 ENV NODE_ENV=production
