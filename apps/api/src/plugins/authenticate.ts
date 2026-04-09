@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
+import { verifyAccessToken } from "../lib/jwt.js";
 import { UnauthorizedError } from "../shared/errors/app-error.js";
 
 declare module "fastify" {
@@ -19,7 +20,13 @@ async function authenticate(
   if (!auth?.startsWith("Bearer ")) {
     throw new UnauthorizedError();
   }
-  request.userId = "stub-user-id";
+  try {
+    const token = auth.slice("Bearer ".length).trim();
+    const payload = await verifyAccessToken(token);
+    request.userId = payload.sub;
+  } catch {
+    throw new UnauthorizedError();
+  }
 }
 
 export const authenticatePlugin = fp(async function registerAuthenticate(

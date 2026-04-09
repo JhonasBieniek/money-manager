@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { AppError } from "./app-error.js";
 import { ZodError } from "zod";
+import { AppError } from "./app-error.js";
+
+const PUBLIC_INVALID_CREDENTIALS = "Email/Senha incorreto";
 
 export function errorHandler(
   error: Error,
@@ -12,6 +14,10 @@ export function errorHandler(
     return;
   }
   if (error instanceof AppError) {
+    if (error.code === "INVALID_CREDENTIALS") {
+      void reply.status(error.statusCode).send({ error: PUBLIC_INVALID_CREDENTIALS });
+      return;
+    }
     void reply.status(error.statusCode).send({ error: "Request failed" });
     return;
   }

@@ -1,10 +1,9 @@
 import { cookies } from "next/headers";
 
-/**
- * Lê sessão no servidor (cookies HttpOnly) — stub até JWT refresh flow existir.
- */
-export async function getSessionUserId(): Promise<string | null> {
+const REFRESH_COOKIE = "refreshToken";
+
+/** Em deploy com mesmo domínio que a API, o refresh HttpOnly fica visível no servidor. */
+export async function getRefreshCookiePresent(): Promise<boolean> {
   const jar = await cookies();
-  const sid = jar.get("session")?.value;
-  return sid ?? null;
+  return Boolean(jar.get(REFRESH_COOKIE)?.value);
 }

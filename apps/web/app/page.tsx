@@ -7,6 +7,9 @@ export default function HomePage() {
       <Link className="text-blue-600 underline" href="/login">
         Entrar
       </Link>
+      <Link className="text-blue-600 underline" href="/register">
+        Criar conta
+      </Link>
       <Link className="text-blue-600 underline" href="/dashboard">
         Dashboard
       </Link>

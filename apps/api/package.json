@@ -17,14 +17,20 @@
     "@money-manager/db": "workspace:*",
     "@money-manager/types": "workspace:*",
     "@money-manager/utils": "workspace:*",
-    "drizzle-orm": "^0.39.3",
     "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.39.3",
     "fastify": "^5.2.1",
     "fastify-plugin": "^5.0.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^22.13.10",
+    "add": "^2.0.6",
+    "bcrypt": "^6.0.0",
+    "jose": "^6.2.2",
+    "pnpm": "^10.33.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^3.0.7"

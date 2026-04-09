@@ -4,5 +4,6 @@
 - Cada despesa terá um identificador único
 - A data da despesa é um campo obrigatório, se não for atribuido no cadastro assuma o momento atual.
 - Todas as despesas precisam ter definido a fonte do gasto (Dinheiro, final do cartão, pix), atribuição via indice
+- As despesas poderão ser criadas tanto a partir do bot do telegram quanto de forma manual no sistema.
 
 

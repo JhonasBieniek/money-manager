@@ -16,6 +16,14 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+/** Credenciais inválidas — mensagem pública fixa no error-handler (TDD login). */
+export class InvalidCredentialsError extends AppError {
+  constructor() {
+    super("Invalid credentials", 401, "INVALID_CREDENTIALS");
+    this.name = "InvalidCredentialsError";
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = "Not found") {
     super(message, 404, "NOT_FOUND");
