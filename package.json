@@ -7,6 +7,9 @@
     "setup": "node ./scripts/setup.mjs",
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:bot": "pnpm --filter @money-manager/bot run dev",
+    "dev:ocr": "node scripts/dev-ocr.mjs",
+    "dev:stt": "node scripts/dev-stt.mjs",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write ."

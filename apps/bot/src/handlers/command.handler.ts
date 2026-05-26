@@ -49,7 +49,7 @@ export function createHandleStart(internal: InternalApiClient) {
 
 export async function handleHelp(ctx: Context): Promise<void> {
   await ctx.reply(
-    "Comandos: /start <código> (vincular conta), /help, /cancel. Envie uma foto de comprovante depois de vinculado."
+    "Comandos: /start <código> (vincular conta), /help, /cancel. Depois de vinculado, envie foto de comprovante ou áudio/nota de voz com a despesa."
   );
 }
 

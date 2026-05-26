@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env.js";
 import { Bot, webhookCallback } from "grammy";
 import { createServer } from "node:http";
 import { createInternalClient } from "./api/internal.client.js";
@@ -8,6 +8,7 @@ import {
   handleHelp,
 } from "./handlers/command.handler.js";
 import { handlePhoto } from "./handlers/photo.handler.js";
+import { handleVoice } from "./handlers/voice.handler.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -24,6 +25,7 @@ if (!internalApiKey) {
 }
 
 const ocrServiceUrl = process.env.OCR_SERVICE_URL ?? "http://localhost:8000";
+const sttServiceUrl = process.env.STT_SERVICE_URL ?? "http://localhost:8001";
 
 const internal = createInternalClient({
   apiBaseUrl: apiInternalUrl,
@@ -37,6 +39,9 @@ bot.command("help", handleHelp);
 bot.command("cancel", handleCancel);
 bot.on("message:photo", (ctx) =>
   handlePhoto(ctx, { ocrServiceUrl, internal })
+);
+bot.on(["message:voice", "message:audio"], (ctx) =>
+  handleVoice(ctx, { sttServiceUrl, internal })
 );
 
 async function main() {

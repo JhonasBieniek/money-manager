@@ -2,6 +2,7 @@ import type { Context } from "grammy";
 import type { InternalApiClient } from "../api/internal.client.js";
 import { runOcrOnImageBytes } from "../services/ocr.service.js";
 import { parseBankNotification } from "../services/parser.service.js";
+import { downloadTelegramFile } from "../utils/telegram-file.js";
 
 export type PhotoHandlerEnv = {
   ocrServiceUrl: string;
@@ -38,15 +39,13 @@ export async function handlePhoto(
     return;
   }
 
-  const file = await ctx.api.getFile(fileId);
-  const url = `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`;
-  const imageRes = await fetch(url);
-  if (!imageRes.ok) {
+  let buf: Buffer;
+  try {
+    buf = await downloadTelegramFile(ctx, fileId);
+  } catch {
     await ctx.reply("Falha ao baixar imagem do Telegram.");
     return;
   }
-
-  const buf = Buffer.from(await imageRes.arrayBuffer());
   const ocr = await runOcrOnImageBytes(buf, env.ocrServiceUrl);
   const parsed = parseBankNotification(ocr.full_text);
 
