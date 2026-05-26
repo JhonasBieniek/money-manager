@@ -1,0 +1,20 @@
+const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+export async function apiFetch(
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
+  const url = `${base.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  const extra = init?.headers as Record<string, string> | undefined;
+  const headers: Record<string, string> = { ...extra };
+
+  if (init?.body != null && !headers["content-type"] && !headers["Content-Type"]) {
+    headers["content-type"] = "application/json";
+  }
+
+  return fetch(url, {
+    ...init,
+    headers,
+    credentials: "omit",
+  });
+}
