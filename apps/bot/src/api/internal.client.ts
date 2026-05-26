@@ -18,6 +18,10 @@ export function createInternalClient(config: InternalClientConfig) {
       const url = `${config.apiBaseUrl.replace(/\/$/, "")}${pathWithQuery.startsWith("/") ? pathWithQuery : `/${pathWithQuery}`}`;
       return fetch(url, { method: "GET", headers });
     },
+    async patchJson(path: string, body: unknown): Promise<Response> {
+      const url = `${config.apiBaseUrl.replace(/\/$/, "")}${path}`;
+      return fetch(url, { method: "PATCH", headers, body: JSON.stringify(body) });
+    },
   };
 }
 

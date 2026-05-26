@@ -41,6 +41,7 @@ function readProvider() {
 }
 
 const provider = readProvider();
+console.log(`run-migrations: DB_PROVIDER=${provider}`);
 
 async function runPostgres() {
   const url = process.env.DATABASE_URL;

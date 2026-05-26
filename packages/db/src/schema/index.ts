@@ -32,3 +32,12 @@ export const incomes = s.incomes;
 export const incomeTags = s.incomeTags;
 export const goals = s.goals;
 export const telegramAccounts = s.telegramAccounts;
+export const telegramInboundMessages = s.telegramInboundMessages;
+export const telegramInboundKindValues = s.telegramInboundKindValues;
+export const telegramInboundStatusValues = s.telegramInboundStatusValues;
+
+export type ParsedExpenseItem = {
+  amount?: number;
+  description?: string;
+  paymentMethod?: string;
+};

@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { expensesInternalRoutes } from "./modules/expenses/expenses-internal.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { incomesRoutes } from "./modules/incomes/incomes.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
@@ -32,6 +33,9 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(telegramRoutes, { prefix: "/v1/telegram" });
   await app.register(telegramInternalRoutes, {
     prefix: "/v1/internal/telegram",
+  });
+  await app.register(expensesInternalRoutes, {
+    prefix: "/v1/internal/expenses",
   });
 
   return app;

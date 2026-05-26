@@ -13,7 +13,7 @@ App **single-user** (local/pessoal): sem login, JWT ou `user_id`. Web → API se
 
 Monorepo: `apps/api` (Fastify), `apps/web` (Next.js), `apps/bot` (opcional), `packages/db`, `packages/types`, `packages/utils`.
 
-Banco: `DB_PROVIDER=sqlite` (`SQLITE_PATH`) ou `supabase` (`DATABASE_URL`). Setup: `pnpm setup` + `db:migrate:runtime` (sem seed de dados).
+Banco: `DB_PROVIDER=sqlite` (`SQLITE_PATH`) ou `supabase` (`DATABASE_URL`). Migrações: `pnpm db:migrate` na raiz (aplica `migrations/sqlite` ou `migrations/postgres` conforme o provider). Setup: `pnpm setup` (sem seed de dados).
 
 ### Domínio
 

@@ -41,7 +41,6 @@ interface ExpenseFormProps {
     goalCategory?: GoalCategory;
     occurredAt: string;
     paymentMethodIndex?: number;
-    cardLastFour?: string;
     tagIds?: string[];
   };
   onSuccess?: () => void;
@@ -81,7 +80,6 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
   const [paymentMethodIndex, setPaymentMethodIndex] = useState(
     initialData?.paymentMethodIndex ?? 0
   );
-  const [cardLastFour, setCardLastFour] = useState(initialData?.cardLastFour ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const tagOptions = useMemo(
@@ -115,7 +113,6 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
       goalCategory,
       occurredAt: dateInputToIso(occurredAt),
       paymentMethodIndex: Number(paymentMethodIndex),
-      cardLastFour: paymentMethodIndex === 1 ? cardLastFour : undefined,
       tagIds: selectedTags.length > 0 ? selectedTags : undefined,
     };
 
@@ -204,21 +201,6 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
               ))}
             </ChoiceGroup>
           </div>
-
-          {paymentMethodIndex === 1 ? (
-            <FormField label="Final do cartão" htmlFor="cardLastFour" className="sm:col-span-2">
-              <FormInput
-                id="cardLastFour"
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={cardLastFour}
-                onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, ""))}
-                placeholder="1234"
-                className="max-w-[8rem] font-mono tracking-widest"
-              />
-            </FormField>
-          ) : null}
         </div>
       </FormSection>
 

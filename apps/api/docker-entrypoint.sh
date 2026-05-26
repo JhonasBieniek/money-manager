@@ -9,7 +9,7 @@ if [ "${RUN_DB_MIGRATIONS:-true}" = "true" ]; then
     exit 1
   fi
   cd /app
-  pnpm --filter @money-manager/db run db:migrate:runtime
+  pnpm run db:migrate
 fi
 
 exec node /app/apps/api/dist/server.js

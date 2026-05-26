@@ -1,6 +1,6 @@
 import { db, expenses, incomes, goals } from "@money-manager/db";
 import { localMonthRange } from "@money-manager/utils";
-import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
 
 export interface DashboardSummary {
   totalIncomes: number;
@@ -71,6 +71,7 @@ export async function getDashboardSummary(
     .where(
       and(
         isNull(expenses.deletedAt),
+        isNotNull(expenses.goalCategory),
         gte(expenses.occurredAt, startDate),
         lte(expenses.occurredAt, endDate)
       )
@@ -78,7 +79,9 @@ export async function getDashboardSummary(
     .groupBy(expenses.goalCategory);
 
   const spentByCategory = new Map(
-    spentRows.map((r) => [r.category, Number(r.total ?? 0)])
+    spentRows
+      .filter((r) => r.category !== null)
+      .map((r) => [r.category!, Number(r.total ?? 0)])
   );
 
   const goalsUsage = goalsList.map((goal) => {

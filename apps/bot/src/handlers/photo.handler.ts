@@ -3,6 +3,7 @@ import type { InternalApiClient } from "../api/internal.client.js";
 import { runOcrOnImageBytes } from "../services/ocr.service.js";
 import { parseBankNotification } from "../services/parser.service.js";
 import { downloadTelegramFile } from "../utils/telegram-file.js";
+import { replyToTrigger } from "../utils/telegram-reply.js";
 
 export type PhotoHandlerEnv = {
   ocrServiceUrl: string;
@@ -15,7 +16,7 @@ export async function handlePhoto(
 ): Promise<void> {
   const chatId = ctx.chat?.id;
   if (chatId === undefined) {
-    await ctx.reply("Não foi possível identificar o chat.");
+    await replyToTrigger(ctx, "Não foi possível identificar o chat.");
     return;
   }
 
@@ -23,19 +24,19 @@ export async function handlePhoto(
     `/v1/internal/telegram/account?chatId=${encodeURIComponent(String(chatId))}`
   );
   if (!linked.ok) {
-    await ctx.reply("Vincule sua conta primeiro com /start e o código do site.");
+    await replyToTrigger(ctx, "Vincule sua conta primeiro com /start e o código do site.");
     return;
   }
 
   const photos = ctx.message?.photo;
   if (!photos?.length) {
-    await ctx.reply("Não foi possível ler a foto.");
+    await replyToTrigger(ctx, "Não foi possível ler a foto.");
     return;
   }
 
   const fileId = photos[photos.length - 1]?.file_id;
   if (!fileId) {
-    await ctx.reply("Arquivo inválido.");
+    await replyToTrigger(ctx, "Arquivo inválido.");
     return;
   }
 
@@ -43,13 +44,14 @@ export async function handlePhoto(
   try {
     buf = await downloadTelegramFile(ctx, fileId);
   } catch {
-    await ctx.reply("Falha ao baixar imagem do Telegram.");
+    await replyToTrigger(ctx, "Falha ao baixar imagem do Telegram.");
     return;
   }
   const ocr = await runOcrOnImageBytes(buf, env.ocrServiceUrl);
   const parsed = parseBankNotification(ocr.full_text);
 
-  await ctx.reply(
+  await replyToTrigger(
+    ctx,
     `OCR (confiança ${ocr.confidence.toFixed(2)}): ${ocr.full_text.slice(0, 500) || "(vazio)"}\nParse stub: ${JSON.stringify(parsed)}`
   );
 }

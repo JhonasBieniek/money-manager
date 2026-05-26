@@ -1,5 +1,4 @@
 import {
-  char,
   index,
   integer,
   jsonb,
@@ -18,10 +17,9 @@ export const expenses = pgTable(
     id: uuid("id").primaryKey(),
     amountCents: integer("amount_cents").notNull(),
     description: text("description").notNull(),
-    goalCategory: goalCategoryEnum("goal_category").notNull().default("custos-fixos"),
+    goalCategory: goalCategoryEnum("goal_category"),
     establishment: text("establishment"),
     paymentMethod: paymentMethodEnum("payment_method").notNull().default("credit_card"),
-    cardLastFour: char("card_last_four", { length: 4 }),
     source: expenseSourceEnum("source").notNull().default("manual"),
     ocrStatus: ocrStatusEnum("ocr_status"),
     idempotencyKey: text("idempotency_key"),

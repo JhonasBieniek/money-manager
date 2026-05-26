@@ -12,8 +12,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="scroll-smooth">
-      <body className="min-h-[100dvh] antialiased selection:bg-emerald-500/30">
+    <html lang="pt-BR" className="scroll-smooth" suppressHydrationWarning>
+      <body
+        className="min-h-[100dvh] antialiased selection:bg-emerald-500/30"
+        suppressHydrationWarning
+      >
         <div className="noise-overlay" />
         {children}
       </body>

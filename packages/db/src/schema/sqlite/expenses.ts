@@ -8,14 +8,11 @@ export const expenses = sqliteTable(
     id: text("id").primaryKey(),
     amountCents: integer("amount_cents").notNull(),
     description: text("description").notNull(),
-    goalCategory: text("goal_category", { enum: goalCategories })
-      .notNull()
-      .default("custos-fixos"),
+    goalCategory: text("goal_category", { enum: goalCategories }),
     establishment: text("establishment"),
     paymentMethod: text("payment_method", { enum: paymentMethodValues })
       .notNull()
       .default("credit_card"),
-    cardLastFour: text("card_last_four"),
     source: text("source", { enum: expenseSourceValues }).notNull().default("manual"),
     ocrStatus: text("ocr_status", { enum: ocrStatusValues }),
     idempotencyKey: text("idempotency_key"),

@@ -19,7 +19,6 @@ interface ExpenseApi {
   goalCategory?: GoalCategory;
   occurredAt: string;
   paymentMethod?: string;
-  cardLastFour?: string | null;
   tagIds?: string[];
 }
 
@@ -90,7 +89,6 @@ export function ExpenseModalForm({
           initialData.paymentMethod != null
             ? (PAYMENT_METHOD_INDEX[initialData.paymentMethod] ?? 0)
             : 0,
-        cardLastFour: initialData.cardLastFour ?? undefined,
         tagIds: initialData.tagIds,
       }
     : undefined;

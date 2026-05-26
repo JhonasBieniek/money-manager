@@ -200,7 +200,11 @@ export function ExpenseList() {
                       <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300/90">
                         {GOAL_CATEGORY_LABELS[expense.goalCategory]}
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+                        Sem categoria
+                      </span>
+                    )}
                     <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-xs">
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       {expense.tagIds && expense.tagIds.length > 0

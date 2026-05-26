@@ -5,6 +5,7 @@
   "scripts": {
     "postinstall": "node -e \"const fs=require('fs');const {spawnSync}=require('child_process');if(fs.existsSync('packages/types/tsconfig.build.json')){const r=spawnSync('pnpm',['--filter','@money-manager/types','run','build'],{stdio:'inherit',shell:true});process.exit(r.status??1);}\"",
     "setup": "node ./scripts/setup.mjs",
+    "db:migrate": "pnpm --filter @money-manager/db run db:migrate",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:bot": "pnpm --filter @money-manager/bot run dev",

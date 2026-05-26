@@ -8,6 +8,7 @@ import {
   handleHelp,
 } from "./handlers/command.handler.js";
 import { handlePhoto } from "./handlers/photo.handler.js";
+import { handleSync } from "./handlers/sync.handler.js";
 import { handleVoice } from "./handlers/voice.handler.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -37,6 +38,7 @@ const bot = new Bot(token);
 bot.command("start", createHandleStart(internal));
 bot.command("help", handleHelp);
 bot.command("cancel", handleCancel);
+bot.command("sync", (ctx) => handleSync(ctx, { sttServiceUrl, internal }));
 bot.on("message:photo", (ctx) =>
   handlePhoto(ctx, { ocrServiceUrl, internal })
 );

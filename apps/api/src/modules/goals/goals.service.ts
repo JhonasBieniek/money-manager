@@ -1,6 +1,6 @@
 import { db, expenses, goals, incomes } from "@money-manager/db";
 import { localMonthRange, newId } from "@money-manager/utils";
-import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { ValidationError } from "../../shared/errors/app-error.js";
 import type { UpsertGoalsBody } from "./goals.schema.js";
 
@@ -99,6 +99,7 @@ export async function getGoalUsage(
     .where(
       and(
         isNull(expenses.deletedAt),
+        isNotNull(expenses.goalCategory),
         gte(expenses.occurredAt, startDate),
         lte(expenses.occurredAt, endDate)
       )
@@ -106,7 +107,9 @@ export async function getGoalUsage(
     .groupBy(expenses.goalCategory);
 
   const spentByCategory = new Map(
-    spentRows.map((r) => [r.category, Number(r.total ?? 0)])
+    spentRows
+      .filter((r) => r.category !== null)
+      .map((r) => [r.category!, Number(r.total ?? 0)])
   );
 
   return allGoals.map((goal): GoalWithUsage => {

@@ -18,6 +18,7 @@ import {
   TransactionModalsProvider,
   useTransactionModals,
 } from "@/components/providers/transaction-modals";
+import { UncategorizedExpensesPanel } from "@/components/features/expenses/uncategorized-expenses-panel";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -115,6 +116,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            <UncategorizedExpensesPanel />
             {headerAction ? (
               <button
                 type="button"

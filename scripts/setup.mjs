@@ -136,10 +136,10 @@ async function main() {
     fs.writeFileSync(ENV_PATH, serializeEnv(base), "utf8");
     console.log(`setup: ok → ${ENV_PATH}`);
 
-    console.log("setup: rodando migrações (db:migrate:runtime)...");
+    console.log("setup: rodando migrações (db:migrate)...");
     const migrateRes = spawnSync(
       "pnpm",
-      ["--filter", "@money-manager/db", "run", "db:migrate:runtime"],
+      ["run", "db:migrate"],
       {
         cwd: ROOT,
         stdio: "inherit",
