@@ -79,4 +79,37 @@ describeWithDb("goals integration", () => {
       expect(item.usagePercent).toBe(0);
     }
   });
+
+  it("GET /v1/goals/usage reflete spent de despesas por goal_category", async () => {
+    const { accessToken } = await registerUser(app);
+
+    await request(app)
+      .post("/v1/goals")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ goals: defaultGoals });
+
+    await request(app)
+      .post("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        amount: 150,
+        description: "Aluguel",
+        goalCategory: "custos-fixos",
+        paymentMethodIndex: 0,
+        occurredAt: "2025-06-15T12:00:00.000Z",
+      });
+
+    const usageRes = await request(app)
+      .get("/v1/goals/usage?month=6&year=2025")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(usageRes.status).toBe(200);
+
+    const custosFixos = usageRes.body.items.find(
+      (item: { category: string }) => item.category === "custos-fixos",
+    );
+    expect(custosFixos.spent).toBe(15000);
+    expect(custosFixos.ceiling).toBe(0);
+    expect(custosFixos.usagePercent).toBe(100);
+  });
 });

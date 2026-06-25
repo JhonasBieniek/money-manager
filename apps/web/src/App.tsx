@@ -3,9 +3,12 @@ import { GuestGuard } from "./components/AuthGuard";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EditTagPage } from "./pages/EditTagPage";
+import { EditExpensePage } from "./pages/EditExpensePage";
+import { ExpensesPage } from "./pages/ExpensesPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { NewExpensePage } from "./pages/NewExpensePage";
 import { NewSubTagPage } from "./pages/NewSubTagPage";
 import { NewTagPage } from "./pages/NewTagPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -37,6 +40,9 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="goals" element={<GoalsPage />} />
+          <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="expenses/new" element={<NewExpensePage />} />
+          <Route path="expenses/:id/edit" element={<EditExpensePage />} />
           <Route path="tags" element={<TagsPage />} />
           <Route path="tags/new" element={<NewTagPage />} />
           <Route path="tags/:parentId/sub/new" element={<NewSubTagPage />} />

@@ -1,12 +1,21 @@
-import { getDb, goals } from "@money-manager/db";
+import { expenses, getDb, goals } from "@money-manager/db";
 import type { Goal, GoalWithUsage } from "@money-manager/types";
 import { GOAL_CATEGORIES } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { BadRequestError } from "../../shared/errors/app-error.js";
 import type { UpsertGoalsBody } from "./goals.schema.js";
 
 type GoalRow = typeof goals.$inferSelect;
+
+function monthYearRange(
+  year: number,
+  month: number,
+): { start: Date; end: Date } {
+  const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const end = new Date(year, month, 0, 23, 59, 59, 999);
+  return { start, end };
+}
 
 function toGoal(row: GoalRow): Goal {
   return {
@@ -90,19 +99,39 @@ export async function listGoals(userId: string): Promise<Goal[]> {
 
 export async function getGoalUsage(
   userId: string,
-  _year: number,
-  _month: number,
+  year: number,
+  month: number,
 ): Promise<GoalWithUsage[]> {
   const db = getDb();
+  const { start, end } = monthYearRange(year, month);
 
-  const allGoals = await db
-    .select()
-    .from(goals)
-    .where(and(eq(goals.userId, userId), eq(goals.isActive, true)));
+  const [allGoals, spentRows] = await Promise.all([
+    db
+      .select()
+      .from(goals)
+      .where(and(eq(goals.userId, userId), eq(goals.isActive, true))),
+    db
+      .select({
+        category: expenses.goalCategory,
+        total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          isNull(expenses.deletedAt),
+          gte(expenses.occurredAt, start),
+          lte(expenses.occurredAt, end),
+        ),
+      )
+      .groupBy(expenses.goalCategory),
+  ]);
 
-  // TODO(F06/F07): aggregate incomes for ceiling and expenses by goal_category for spent.
+  // TODO(F07): aggregate incomes for ceiling.
   const totalIncomes = 0;
-  const spentByCategory = new Map<string, number>();
+  const spentByCategory = new Map(
+    spentRows.map((row) => [row.category, row.total ?? 0]),
+  );
 
   return allGoals.map((goal) => {
     const percentageValue = parseFloat(goal.percentage);

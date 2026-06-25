@@ -3,3 +3,4 @@ export * from "./api/auth.js";
 export * from "./api/user.js";
 export * from "./api/tag.js";
 export * from "./api/goals.js";
+export * from "./api/financial.js";

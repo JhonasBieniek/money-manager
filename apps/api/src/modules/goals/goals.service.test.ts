@@ -19,6 +19,13 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     createdAt: "created_at",
     updatedAt: "updated_at",
   },
+  expenses: {
+    userId: "user_id",
+    amountCents: "amount_cents",
+    goalCategory: "goal_category",
+    deletedAt: "deleted_at",
+    occurredAt: "occurred_at",
+  },
 }));
 
 jest.unstable_mockModule("@money-manager/utils", () => ({
@@ -27,7 +34,16 @@ jest.unstable_mockModule("@money-manager/utils", () => ({
 
 const goalsService = await import("./goals.service.js");
 
-function chainWhere<T>(value: T) {
+function chainWhere<T>(value: T, grouped = false) {
+  if (grouped) {
+    return {
+      from: () => ({
+        where: () => ({
+          groupBy: () => Promise.resolve(value),
+        }),
+      }),
+    };
+  }
   return {
     from: () => ({
       where: () => Promise.resolve(value),
@@ -69,8 +85,8 @@ describe("getGoalUsage", () => {
 
   it("retorna ceiling e spent zerados sem transações", async () => {
     const now = new Date();
-    dbMock.select.mockImplementation(() =>
-      chainWhere([
+    const responses = [
+      [
         {
           id: "goal-1",
           userId: "user-1",
@@ -80,8 +96,14 @@ describe("getGoalUsage", () => {
           createdAt: now,
           updatedAt: now,
         },
-      ]),
-    );
+      ],
+      [],
+    ];
+    let callIndex = 0;
+    dbMock.select.mockImplementation(() => {
+      const response = responses[callIndex++] ?? [];
+      return chainWhere(response, callIndex === 2);
+    });
 
     const usage = await goalsService.getGoalUsage("user-1", 2025, 6);
 
@@ -89,5 +111,35 @@ describe("getGoalUsage", () => {
     expect(usage[0]?.ceiling).toBe(0);
     expect(usage[0]?.spent).toBe(0);
     expect(usage[0]?.usagePercent).toBe(0);
+  });
+
+  it("agrega spent por goal_category", async () => {
+    const now = new Date();
+    const responses = [
+      [
+        {
+          id: "goal-1",
+          userId: "user-1",
+          category: "prazeres",
+          percentage: "20",
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      [{ category: "prazeres", total: 50_000 }],
+    ];
+    let callIndex = 0;
+    dbMock.select.mockImplementation(() => {
+      const response = responses[callIndex++] ?? [];
+      return chainWhere(response, callIndex === 2);
+    });
+
+    const usage = await goalsService.getGoalUsage("user-1", 2025, 6);
+
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.ceiling).toBe(0);
+    expect(usage[0]?.spent).toBe(50_000);
+    expect(usage[0]?.usagePercent).toBe(100);
   });
 });
