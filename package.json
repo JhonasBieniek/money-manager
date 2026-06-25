@@ -1,0 +1,21 @@
+{
+  "name": "money-manager",
+  "private": true,
+  "packageManager": "pnpm@10.6.5",
+  "scripts": {
+    "postinstall": "node -e \"const fs=require('fs');const {spawnSync}=require('child_process');if(fs.existsSync('packages/types/tsconfig.build.json')){const r=spawnSync('pnpm',['--filter','@money-manager/types','run','build'],{stdio:'inherit',shell:true});process.exit(r.status??1);}\"",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.10",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.25.0"
+  }
+}
