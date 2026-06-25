@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Income } from "@money-manager/types";
+import { TransactionListFiltersBar } from "../transactions/transaction-list-filters";
 import { apiFetch } from "../../../lib/api";
-import { ChevronLeft, ChevronRight, Edit3, Trash2, TrendingUp } from "lucide-react";
+import {
+  filtersToSearchParams,
+  type TransactionListFilters,
+} from "../../../lib/transaction-list-filters";
+import { Edit3, Filter, Trash2 } from "lucide-react";
 
 const SOURCE_LABELS: Record<string, string> = {
   salary: "Salário",
@@ -28,41 +33,28 @@ function formatDate(dateStr: string) {
   }).format(new Date(dateStr));
 }
 
-const MONTH_NAMES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
 export function IncomeList() {
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+  const [filters, setFilters] = useState<TransactionListFilters | null>(null);
   const [offset, setOffset] = useState(0);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleFiltersChange = useCallback((next: TransactionListFilters) => {
+    setOffset(0);
+    setFilters(next);
+  }, []);
+
   const load = useCallback(async () => {
+    if (!filters) return;
+
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({
-        month: String(month),
-        year: String(year),
-        limit: String(PAGE_SIZE),
-        offset: String(offset),
-      });
+      const params = filtersToSearchParams(filters);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
       const res = await apiFetch(`/v1/incomes?${params.toString()}`);
       if (!res.ok) throw new Error("Falha ao carregar receitas");
       const data = (await res.json()) as {
@@ -78,15 +70,11 @@ export function IncomeList() {
     } finally {
       setLoading(false);
     }
-  }, [month, year, offset]);
+  }, [filters, offset]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    setOffset(0);
-  }, [month, year]);
 
   async function handleDelete(id: string) {
     if (!confirm("Tem certeza que deseja excluir esta receita?")) return;
@@ -99,56 +87,16 @@ export function IncomeList() {
     }
   }
 
-  function prevMonth() {
-    if (month === 1) {
-      setMonth(12);
-      setYear((y) => y - 1);
-    } else {
-      setMonth((m) => m - 1);
-    }
-  }
-
-  function nextMonth() {
-    if (month === 12) {
-      setMonth(1);
-      setYear((y) => y + 1);
-    } else {
-      setMonth((m) => m + 1);
-    }
-  }
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={prevMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Mês anterior"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="min-w-[10rem] text-center text-sm font-bold text-white">
-            {MONTH_NAMES[month - 1]} {year}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Próximo mês"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
+      <TransactionListFiltersBar onFiltersChange={handleFiltersChange} />
 
-        <p className="text-sm text-zinc-500">
-          {total} {total === 1 ? "receita" : "receitas"}
-        </p>
-      </div>
+      <p className="text-sm text-zinc-500">
+        {total} {total === 1 ? "receita" : "receitas"}
+      </p>
 
       {error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
@@ -168,11 +116,11 @@ export function IncomeList() {
       ) : incomes.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[2.5rem] border-2 border-dashed border-white/5 py-24 text-center">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
-            <TrendingUp className="h-8 w-8 text-zinc-700" />
+            <Filter className="h-8 w-8 text-zinc-700" />
           </div>
           <h3 className="mb-2 text-xl font-bold text-white">Sem receitas</h3>
           <p className="max-w-[30ch] text-sm text-zinc-500">
-            Nenhuma receita encontrada para {MONTH_NAMES[month - 1]} de {year}.
+            Nenhuma receita encontrada para os filtros selecionados.
           </p>
         </div>
       ) : (
