@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Receipt, Settings } from "lucide-react";
+import { Hash, LayoutDashboard, LogOut, Receipt, Settings } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { AuthGuard } from "../components/AuthGuard";
 import { logout } from "../lib/api";
@@ -6,6 +6,7 @@ import { cn } from "../lib/cn";
 
 const navItems = [
   { name: "Resumo", href: "/dashboard", icon: LayoutDashboard, end: true },
+  { name: "Tags", href: "/dashboard/tags", icon: Hash },
   { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
 

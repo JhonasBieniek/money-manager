@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { checkDbConnection } from "@money-manager/db";
 import type { HealthResponse } from "@money-manager/types";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { tagsRoutes } from "./modules/tags/tags.routes.js";
 import { userRoutes } from "./modules/users/user.routes.js";
 import { getAllowedCorsOrigins } from "./shared/cors.js";
 import { errorHandler } from "./shared/errors/error-handler.js";
@@ -52,6 +53,7 @@ export function createApp() {
 
   app.use("/v1/auth", authRoutes);
   app.use("/v1/me", userRoutes);
+  app.use("/v1/tags", tagsRoutes);
 
   app.use(errorHandler);
 
