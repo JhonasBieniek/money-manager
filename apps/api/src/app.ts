@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { checkDbConnection } from "@money-manager/db";
 import type { HealthResponse } from "@money-manager/types";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
 import { incomesRoutes } from "./modules/incomes/incomes.routes.js";
@@ -60,6 +61,7 @@ export function createApp() {
   app.use("/v1/goals", goalsRoutes);
   app.use("/v1/expenses", expensesRoutes);
   app.use("/v1/incomes", incomesRoutes);
+  app.use("/v1/dashboard", dashboardRoutes);
 
   app.use(errorHandler);
 
