@@ -8,6 +8,13 @@ export type PaymentMethod =
 
 export type ExpenseSource = "manual" | "telegram_whisper" | "telegram_manual";
 
+export type IncomeSource =
+  | "salary"
+  | "freelance"
+  | "investment"
+  | "gift"
+  | "other";
+
 export interface PaginationMeta {
   total: number;
   limit: number;
@@ -38,5 +45,27 @@ export interface ExpenseListResponse {
 }
 
 export interface CreateExpenseResponse {
+  id: string;
+}
+
+/** Receita do usuário (valores em centavos). */
+export interface Income {
+  id: string;
+  userId: string;
+  amountCents: number;
+  description: string;
+  source: IncomeSource | string;
+  tagIds?: string[];
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IncomeListResponse {
+  items: Income[];
+  meta: PaginationMeta;
+}
+
+export interface CreateIncomeResponse {
   id: string;
 }

@@ -1,4 +1,4 @@
-import { Hash, LayoutDashboard, LogOut, Receipt, ReceiptText, Settings, Target } from "lucide-react";
+import { Hash, LayoutDashboard, LogOut, Receipt, ReceiptText, Settings, Target, TrendingUp } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { AuthGuard } from "../components/AuthGuard";
 import { logout } from "../lib/api";
@@ -8,6 +8,7 @@ const navItems = [
   { name: "Resumo", href: "/dashboard", icon: LayoutDashboard, end: true },
   { name: "Metas", href: "/dashboard/goals", icon: Target },
   { name: "Despesas", href: "/dashboard/expenses", icon: ReceiptText },
+  { name: "Receitas", href: "/dashboard/incomes", icon: TrendingUp },
   { name: "Tags", href: "/dashboard/tags", icon: Hash },
   { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];

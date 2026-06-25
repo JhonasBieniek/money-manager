@@ -1,4 +1,4 @@
-import { expenses, getDb, goals } from "@money-manager/db";
+import { expenses, getDb, goals, incomes } from "@money-manager/db";
 import type { Goal, GoalWithUsage } from "@money-manager/types";
 import { GOAL_CATEGORIES } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
@@ -105,11 +105,24 @@ export async function getGoalUsage(
   const db = getDb();
   const { start, end } = monthYearRange(year, month);
 
-  const [allGoals, spentRows] = await Promise.all([
+  const [allGoals, incomesResult, spentRows] = await Promise.all([
     db
       .select()
       .from(goals)
       .where(and(eq(goals.userId, userId), eq(goals.isActive, true))),
+    db
+      .select({
+        total: sql<number>`COALESCE(SUM(${incomes.amountCents}), 0)::int`,
+      })
+      .from(incomes)
+      .where(
+        and(
+          eq(incomes.userId, userId),
+          isNull(incomes.deletedAt),
+          gte(incomes.occurredAt, start),
+          lte(incomes.occurredAt, end),
+        ),
+      ),
     db
       .select({
         category: expenses.goalCategory,
@@ -127,8 +140,7 @@ export async function getGoalUsage(
       .groupBy(expenses.goalCategory),
   ]);
 
-  // TODO(F07): aggregate incomes for ceiling.
-  const totalIncomes = 0;
+  const totalIncomes = incomesResult[0]?.total ?? 0;
   const spentByCategory = new Map(
     spentRows.map((row) => [row.category, row.total ?? 0]),
   );

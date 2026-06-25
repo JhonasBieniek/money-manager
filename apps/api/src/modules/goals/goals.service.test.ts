@@ -26,6 +26,12 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     deletedAt: "deleted_at",
     occurredAt: "occurred_at",
   },
+  incomes: {
+    userId: "user_id",
+    amountCents: "amount_cents",
+    deletedAt: "deleted_at",
+    occurredAt: "occurred_at",
+  },
 }));
 
 jest.unstable_mockModule("@money-manager/utils", () => ({
@@ -97,12 +103,13 @@ describe("getGoalUsage", () => {
           updatedAt: now,
         },
       ],
+      [{ total: 0 }],
       [],
     ];
     let callIndex = 0;
     dbMock.select.mockImplementation(() => {
       const response = responses[callIndex++] ?? [];
-      return chainWhere(response, callIndex === 2);
+      return chainWhere(response, callIndex === 3);
     });
 
     const usage = await goalsService.getGoalUsage("user-1", 2025, 6);
@@ -127,12 +134,13 @@ describe("getGoalUsage", () => {
           updatedAt: now,
         },
       ],
+      [{ total: 0 }],
       [{ category: "prazeres", total: 50_000 }],
     ];
     let callIndex = 0;
     dbMock.select.mockImplementation(() => {
       const response = responses[callIndex++] ?? [];
-      return chainWhere(response, callIndex === 2);
+      return chainWhere(response, callIndex === 3);
     });
 
     const usage = await goalsService.getGoalUsage("user-1", 2025, 6);

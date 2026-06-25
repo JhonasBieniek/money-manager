@@ -112,4 +112,45 @@ describeWithDb("goals integration", () => {
     expect(custosFixos.ceiling).toBe(0);
     expect(custosFixos.usagePercent).toBe(100);
   });
+
+  it("GET /v1/goals/usage calcula ceiling e spent via goalCategory", async () => {
+    const { accessToken } = await registerUser(app);
+
+    await request(app)
+      .post("/v1/goals")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ goals: defaultGoals });
+
+    await request(app)
+      .post("/v1/incomes")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        amount: 10000,
+        description: "Salário",
+        occurredAt: new Date(2025, 5, 15).toISOString(),
+      });
+
+    await request(app)
+      .post("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        amount: 500,
+        description: "Cinema",
+        goalCategory: "prazeres",
+        paymentMethodIndex: 0,
+        occurredAt: new Date(2025, 5, 20).toISOString(),
+      });
+
+    const usageRes = await request(app)
+      .get("/v1/goals/usage?month=6&year=2025")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    const prazeres = usageRes.body.items.find(
+      (item: { category: string }) => item.category === "prazeres",
+    );
+
+    expect(prazeres.ceiling).toBe(100_000);
+    expect(prazeres.spent).toBe(50_000);
+    expect(prazeres.usagePercent).toBe(50);
+  });
 });
