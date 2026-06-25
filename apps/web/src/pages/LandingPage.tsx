@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export function LandingPage() {
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -12,7 +14,15 @@ export function LandingPage() {
           Controle despesas, receitas e metas financeiras com clareza. Integração
           com Telegram para registrar gastos por áudio.
         </p>
-        <p className="text-xs text-zinc-600">
+        <div className="flex flex-wrap gap-3">
+          <Link to="/login" className="btn-primary">
+            Entrar
+          </Link>
+          <Link to="/register" className="btn-ghost">
+            Criar conta
+          </Link>
+        </div>
+        <p className="mt-8 text-xs text-zinc-600">
           API: <code className="text-zinc-400">{apiUrl}</code>
         </p>
       </div>

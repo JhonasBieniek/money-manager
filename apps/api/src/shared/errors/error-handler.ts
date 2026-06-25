@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { AppError } from "./app-error.js";
 
+const PUBLIC_INVALID_CREDENTIALS = "Email/Senha incorreto";
+
 export function errorHandler(
   error: Error,
   _req: Request,
@@ -14,6 +16,10 @@ export function errorHandler(
   }
 
   if (error instanceof AppError) {
+    if (error.code === "INVALID_CREDENTIALS") {
+      res.status(error.statusCode).json({ error: PUBLIC_INVALID_CREDENTIALS });
+      return;
+    }
     res.status(error.statusCode).json({
       error: error.message,
       code: error.code,

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: money_manager
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: money_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U money_manager -d money_manager"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://money_manager:changeme@localhost:5432/money_manager
+      JWT_ACCESS_SECRET: ci-access-secret-min-32-characters-long-here
+      JWT_REFRESH_SECRET: ci-refresh-secret-min-32-characters-long-here
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Migrate database
+        run: pnpm --filter @money-manager/db run db:migrate:runtime
+
+      - name: Test
+        run: pnpm test

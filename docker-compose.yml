@@ -31,6 +31,8 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 3001
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-min-32-characters-long-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-min-32-characters-long-change-me}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
     depends_on:
       postgres:
