@@ -25,7 +25,7 @@ export interface PaginationMeta {
 export interface Expense {
   id: string;
   userId: string;
-  goalCategory: import("./goals.js").GoalCategory;
+  goalCategory: import("./goals.js").GoalCategory | null;
   tagIds?: string[];
   amountCents: number;
   description: string;

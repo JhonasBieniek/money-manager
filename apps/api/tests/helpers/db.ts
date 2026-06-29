@@ -9,7 +9,7 @@ export const describeWithDb = hasDatabase() ? describe : describe.skip;
 
 export async function truncateTables(): Promise<void> {
   await getPool().query(
-    "TRUNCATE TABLE income_tags, incomes, expense_tags, expenses, goals, tags, sessions, users RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE telegram_inbound_messages, telegram_link_tokens, telegram_accounts, income_tags, incomes, expense_tags, expenses, goals, tags, sessions, users RESTART IDENTITY CASCADE",
   );
 }
 

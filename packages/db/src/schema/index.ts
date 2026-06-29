@@ -7,3 +7,6 @@ export * from "./expenses.js";
 export * from "./expense-tags.js";
 export * from "./incomes.js";
 export * from "./income-tags.js";
+export * from "./telegram-accounts.js";
+export * from "./telegram-link-tokens.js";
+export * from "./telegram-inbound-messages.js";

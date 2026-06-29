@@ -54,3 +54,17 @@ export const expenseIdParamsSchema = z.object({
 });
 
 export type ExpenseIdParams = z.infer<typeof expenseIdParamsSchema>;
+
+export const createBotExpenseBodySchema = z.object({
+  chatId: z.string().regex(/^\d+$/),
+  amount: z.number().positive(),
+  description: z.string().trim().min(1),
+  goalCategory: goalCategorySchema.optional(),
+  occurredAt: z.string().datetime({ offset: true }).optional(),
+  paymentMethodIndex: z.literal(1).default(1),
+  idempotencyKey: z.string().trim().min(1),
+  source: z.literal("telegram_whisper"),
+  tagIds: z.array(z.string().uuid()).optional(),
+});
+
+export type CreateBotExpenseBody = z.infer<typeof createBotExpenseBodySchema>;

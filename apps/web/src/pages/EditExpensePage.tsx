@@ -62,7 +62,7 @@ export function EditExpensePage() {
           id: expense.id,
           amountCents: expense.amountCents,
           description: expense.description,
-          goalCategory: expense.goalCategory,
+          goalCategory: expense.goalCategory ?? undefined,
           tagIds: expense.tagIds,
           occurredAt: expense.occurredAt,
           paymentMethod: expense.paymentMethod,

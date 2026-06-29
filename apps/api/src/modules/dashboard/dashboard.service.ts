@@ -94,9 +94,9 @@ export async function getDashboardSummary(
   const totalExpenses = expensesResult[0]?.total ?? 0;
 
   const expensesByCategory = categoryRows
-    .filter((row) => (row.total ?? 0) > 0)
+    .filter((row) => row.category !== null && (row.total ?? 0) > 0)
     .map((row) => ({
-      category: GOAL_CATEGORY_LABELS[row.category] ?? row.category,
+      category: GOAL_CATEGORY_LABELS[row.category!] ?? row.category!,
       amount: row.total ?? 0,
     }))
     .sort((a, b) => b.amount - a.amount);

@@ -150,7 +150,9 @@ export function ExpenseList() {
                   <div className="mt-1 flex items-center gap-3 text-sm text-zinc-500">
                     <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-xs">
                       <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {GOAL_CATEGORY_LABELS[expense.goalCategory]}
+                      {expense.goalCategory
+                        ? GOAL_CATEGORY_LABELS[expense.goalCategory]
+                        : "Sem meta"}
                     </span>
                     {expense.tagIds && expense.tagIds.length > 0 ? (
                       <>

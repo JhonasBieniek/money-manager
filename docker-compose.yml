@@ -33,6 +33,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-min-32-characters-long-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-min-32-characters-long-change-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
     depends_on:
       postgres:
@@ -48,6 +49,38 @@ services:
       - "5173:80"
     depends_on:
       - api
+
+  stt:
+    build:
+      context: ./apps/stt
+      dockerfile: Dockerfile
+      args:
+        STT_MODEL: ${STT_MODEL:-small}
+    ports:
+      - "8001:8001"
+    environment:
+      STT_MODEL: ${STT_MODEL:-small}
+      STT_MODEL_DIR: /app/models
+      STT_LANGUAGE: ${STT_LANGUAGE:-pt}
+      STT_NOISE_REDUCTION: ${STT_NOISE_REDUCTION:-false}
+
+  bot:
+    build:
+      context: .
+      dockerfile: apps/bot/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_USE_POLLING: ${TELEGRAM_USE_POLLING:-true}
+      BOT_PORT: 3002
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
+      STT_SERVICE_URL: http://stt:8001
+    depends_on:
+      - api
+      - stt
 
 volumes:
   pgdata:

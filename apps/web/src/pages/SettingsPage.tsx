@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TelegramLinkSection } from "../components/features/settings/telegram-link-section";
 import { fetchProfile, logout } from "../lib/api";
 
 export function SettingsPage() {
@@ -40,6 +41,8 @@ export function SettingsPage() {
           Sair da conta
         </button>
       </div>
+
+      <TelegramLinkSection />
     </div>
   );
 }

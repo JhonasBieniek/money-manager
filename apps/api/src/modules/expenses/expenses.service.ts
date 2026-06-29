@@ -11,6 +11,7 @@ import { NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
 import type {
   CreateExpenseBody,
+  CreateBotExpenseBody,
   ListExpensesQuery,
   UpdateExpenseBody,
 } from "./expenses.schema.js";
@@ -47,7 +48,7 @@ async function toExpense(
   return {
     id: row.id,
     userId: row.userId,
-    goalCategory: row.goalCategory as GoalCategory,
+    goalCategory: row.goalCategory as GoalCategory | null,
     tagIds:
       tagIdsOverride ??
       (await loadTagIds(row.id)),
@@ -164,6 +165,75 @@ export async function createExpense(
         cardLastFour: input.cardLastFour ?? null,
         source: "manual",
         idempotencyKey: input.idempotencyKey ?? null,
+        occurredAt,
+      })
+      .returning();
+
+    if (!inserted) {
+      throw new Error("Falha ao criar despesa");
+    }
+
+    if (input.tagIds && input.tagIds.length > 0) {
+      await tx.insert(expenseTags).values(
+        input.tagIds.map((tagId) => ({
+          expenseId: id,
+          tagId,
+        })),
+      );
+    }
+
+    return { expense: inserted, tagIds: input.tagIds };
+  });
+
+  return toExpense(row.expense, row.tagIds);
+}
+
+export async function createBotExpense(
+  input: CreateBotExpenseBody,
+): Promise<Expense> {
+  const { getAccountByChatId } = await import("../telegram/telegram.service.js");
+  const account = await getAccountByChatId(input.chatId);
+  const userId = account.userId;
+
+  const amountCents = Math.round(input.amount * 100);
+  const occurredAt = input.occurredAt ? new Date(input.occurredAt) : new Date();
+  const paymentMethod = PAYMENT_METHOD_MAP[input.paymentMethodIndex]!;
+
+  if (input.tagIds?.length) {
+    await assertTagsBelongToUser(userId, input.tagIds);
+  }
+
+  const row = await getDb().transaction(async (tx) => {
+    if (input.idempotencyKey) {
+      const [existing] = await tx
+        .select()
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.userId, userId),
+            eq(expenses.idempotencyKey, input.idempotencyKey),
+            isNull(expenses.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (existing) {
+        return { expense: existing, tagIds: undefined as string[] | undefined };
+      }
+    }
+
+    const id = newId();
+    const [inserted] = await tx
+      .insert(expenses)
+      .values({
+        id,
+        userId,
+        goalCategory: input.goalCategory ?? null,
+        amountCents,
+        description: input.description,
+        paymentMethod,
+        source: input.source,
+        idempotencyKey: input.idempotencyKey,
         occurredAt,
       })
       .returning();

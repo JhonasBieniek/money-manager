@@ -5,3 +5,4 @@ export * from "./api/tag.js";
 export * from "./api/goals.js";
 export * from "./api/financial.js";
 export * from "./api/dashboard.js";
+export * from "./api/telegram.js";

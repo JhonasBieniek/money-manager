@@ -20,7 +20,7 @@ export const expenses = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    goalCategory: goalCategoryEnum("goal_category").notNull(),
+    goalCategory: goalCategoryEnum("goal_category"),
     amountCents: integer("amount_cents").notNull(),
     description: text("description").notNull(),
     paymentMethod: paymentMethodEnum("payment_method")

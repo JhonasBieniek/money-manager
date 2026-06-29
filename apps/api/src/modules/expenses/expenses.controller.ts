@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getUserId } from "../../shared/types/request.js";
 import {
   createExpenseBodySchema,
+  createBotExpenseBodySchema,
   expenseIdParamsSchema,
   listExpensesQuerySchema,
   updateExpenseBodySchema,
@@ -37,4 +38,10 @@ export async function remove(req: Request, res: Response): Promise<void> {
   const { id } = expenseIdParamsSchema.parse(req.params);
   await expensesService.deleteExpense(getUserId(req), id);
   res.status(204).send();
+}
+
+export async function createBot(req: Request, res: Response): Promise<void> {
+  const body = createBotExpenseBodySchema.parse(req.body);
+  const expense = await expensesService.createBotExpense(body);
+  res.status(201).json({ id: expense.id });
 }
