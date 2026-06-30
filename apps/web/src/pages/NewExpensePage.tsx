@@ -1,25 +1,17 @@
-import { Link } from "react-router-dom";
-import { ExpenseForm } from "../components/features/expenses/expense-form";
-import { ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTransactionModals } from "../components/providers/transaction-modals";
 
 export function NewExpensePage() {
-  return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <Link
-          to="/dashboard/expenses"
-          className="mb-4 inline-flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Link>
-        <h1 className="text-2xl font-bold text-white">Nova despesa</h1>
-        <p className="text-sm text-zinc-400">
-          Registre um novo gasto no seu controle financeiro.
-        </p>
-      </div>
+  const navigate = useNavigate();
+  const { openExpenseModal } = useTransactionModals();
 
-      <ExpenseForm />
-    </div>
+  useEffect(() => {
+    openExpenseModal();
+    navigate("/dashboard/expenses", { replace: true });
+  }, [navigate, openExpenseModal]);
+
+  return (
+    <p className="text-center text-sm text-zinc-500">Abrindo formulário…</p>
   );
 }

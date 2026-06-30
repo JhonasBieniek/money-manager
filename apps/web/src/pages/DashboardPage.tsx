@@ -20,7 +20,7 @@ export function DashboardPage() {
           Bem-vindo de volta!
         </h1>
         <p className="text-lg text-zinc-400">
-          Aqui está um resumo do seu desempenho financeiro este mês.
+          Aqui está um resumo do seu desempenho financeiro.
         </p>
       </motion.div>
 

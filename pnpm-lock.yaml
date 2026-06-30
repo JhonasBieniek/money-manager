@@ -160,6 +160,9 @@ importers:
       '@money-manager/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@money-manager/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       framer-motion:
         specifier: ^12.6.3
         version: 12.42.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

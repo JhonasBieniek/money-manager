@@ -51,6 +51,24 @@ describeWithDb("telegram integration", () => {
     expect(accountRes.body.username).toBe("integration_user");
     expect(accountRes.body.linkedAt).toBeDefined();
     expect(accountRes.body.userId).toBeDefined();
+
+    const userAccountRes = await request(app)
+      .get("/v1/telegram/account")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(userAccountRes.status).toBe(200);
+    expect(userAccountRes.body.chatId).toBe(chatId);
+    expect(userAccountRes.body.linkedAt).toBeDefined();
+  });
+
+  it("GET /v1/telegram/account retorna 404 sem vínculo", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .get("/v1/telegram/account")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(404);
   });
 
   it("rejeita internal API sem x-internal-api-key", async () => {

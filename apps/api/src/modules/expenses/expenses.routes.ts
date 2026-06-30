@@ -4,8 +4,11 @@ import * as expensesController from "./expenses.controller.js";
 
 export const expensesRoutes = Router();
 
+expensesRoutes.get("/uncategorized/count", authenticate, expensesController.uncategorizedCount);
+expensesRoutes.get("/uncategorized", authenticate, expensesController.listUncategorized);
 expensesRoutes.get("/", authenticate, expensesController.list);
 expensesRoutes.post("/", authenticate, expensesController.create);
+expensesRoutes.patch("/:id/categorize", authenticate, expensesController.categorize);
 expensesRoutes.get("/:id", authenticate, expensesController.get);
 expensesRoutes.patch("/:id", authenticate, expensesController.update);
 expensesRoutes.delete("/:id", authenticate, expensesController.remove);

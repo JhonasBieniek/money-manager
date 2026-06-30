@@ -1,6 +1,10 @@
-import type { LinkTokenResponse } from "@money-manager/types";
-import { useState } from "react";
+import type {
+  LinkTokenResponse,
+  TelegramAccountResponse,
+} from "@money-manager/types";
+import { useEffect, useState } from "react";
 import { apiFetch } from "../../../lib/api";
+import { CheckCircle2 } from "lucide-react";
 
 function formatExpiry(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -9,11 +13,67 @@ function formatExpiry(iso: string): string {
   }).format(new Date(iso));
 }
 
+function formatLinkedAt(iso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(new Date(iso));
+}
+
 export function TelegramLinkSection() {
   const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [linkedAccount, setLinkedAccount] =
+    useState<TelegramAccountResponse | null>(null);
   const [linkData, setLinkData] = useState<LinkTokenResponse | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    async function loadAccountStatus() {
+      setCheckingStatus(true);
+      try {
+        const res = await apiFetch("/v1/telegram/account");
+        if (res.ok) {
+          setLinkedAccount((await res.json()) as TelegramAccountResponse);
+        } else {
+          setLinkedAccount(null);
+        }
+      } catch {
+        setLinkedAccount(null);
+      } finally {
+        setCheckingStatus(false);
+      }
+    }
+
+    void loadAccountStatus();
+  }, []);
+
+  useEffect(() => {
+    if (linkedAccount || !linkData) {
+      return;
+    }
+
+    async function pollLinkStatus() {
+      try {
+        const res = await apiFetch("/v1/telegram/account");
+        if (res.ok) {
+          const account = (await res.json()) as TelegramAccountResponse;
+          setLinkedAccount(account);
+          setLinkData(null);
+        }
+      } catch {
+        // ignora erros transitórios no polling
+      }
+    }
+
+    void pollLinkStatus();
+    const interval = setInterval(() => {
+      void pollLinkStatus();
+    }, 3_000);
+
+    return () => clearInterval(interval);
+  }, [linkedAccount, linkData]);
 
   async function handleGenerate() {
     setLoading(true);
@@ -48,6 +108,37 @@ export function TelegramLinkSection() {
     }
   }
 
+  if (checkingStatus) {
+    return (
+      <div className="glass mt-6 rounded-2xl p-6">
+        <div className="h-24 animate-pulse rounded-xl bg-white/5" />
+      </div>
+    );
+  }
+
+  if (linkedAccount) {
+    return (
+      <div className="glass mt-6 rounded-2xl p-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-500">
+          Telegram
+        </h2>
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+          <div>
+            <p className="font-semibold text-emerald-200">Conta já vinculada</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              {linkedAccount.username
+                ? `@${linkedAccount.username}`
+                : `Chat ${linkedAccount.chatId}`}
+              {" · "}
+              vinculada em {formatLinkedAt(linkedAccount.linkedAt)}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass mt-6 rounded-2xl p-6">
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-500">
@@ -78,10 +169,11 @@ export function TelegramLinkSection() {
             Código válido até {formatExpiry(linkData.expiresAt)}
           </p>
           <p className="font-mono text-sm text-emerald-300">{linkData.token}</p>
-          <p className="text-sm text-zinc-300">
-            No Telegram, envie ao bot:
-          </p>
+          <p className="text-sm text-zinc-300">No Telegram, envie ao bot:</p>
           <p className="font-mono text-sm text-white">{linkData.startCommand}</p>
+          <p className="text-xs text-amber-400/90">
+            Aguardando vínculo no Telegram… o card atualiza automaticamente.
+          </p>
           <button
             type="button"
             onClick={() => void handleCopy()}

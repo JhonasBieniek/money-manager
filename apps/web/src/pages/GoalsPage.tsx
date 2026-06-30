@@ -1,11 +1,7 @@
-import { useState } from "react";
 import { Target } from "lucide-react";
 import { GoalsForm } from "../components/features/goals/goals-form";
-import { GoalsUsagePanel } from "../components/features/goals/goals-usage-panel";
 
 export function GoalsPage() {
-  const [usageRefreshToken, setUsageRefreshToken] = useState(0);
-
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div className="space-y-4">
@@ -26,13 +22,7 @@ export function GoalsPage() {
       </div>
 
       <div className="glass rounded-[2.5rem] p-8">
-        <GoalsForm
-          onSaveSuccess={() => setUsageRefreshToken((token) => token + 1)}
-        />
-      </div>
-
-      <div className="glass rounded-[2.5rem] p-8">
-        <GoalsUsagePanel refreshToken={usageRefreshToken} />
+        <GoalsForm />
       </div>
     </div>
   );

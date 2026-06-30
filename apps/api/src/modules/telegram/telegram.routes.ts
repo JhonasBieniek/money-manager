@@ -9,3 +9,4 @@ telegramRoutes.post(
   authenticate,
   telegramController.createLinkToken,
 );
+telegramRoutes.get("/account", authenticate, telegramController.getAccount);

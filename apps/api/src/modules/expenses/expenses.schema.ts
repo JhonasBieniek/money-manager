@@ -49,6 +49,20 @@ export const updateExpenseBodySchema = createExpenseBodySchema
 
 export type UpdateExpenseBody = z.infer<typeof updateExpenseBodySchema>;
 
+export const categorizeExpenseBodySchema = z.object({
+  goalCategory: goalCategorySchema,
+  tagIds: z.array(z.string().uuid()).optional(),
+});
+
+export type CategorizeExpenseBody = z.infer<typeof categorizeExpenseBodySchema>;
+
+export const listUncategorizedQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type ListUncategorizedQuery = z.infer<typeof listUncategorizedQuerySchema>;
+
 export const expenseIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
@@ -61,7 +75,7 @@ export const createBotExpenseBodySchema = z.object({
   description: z.string().trim().min(1),
   goalCategory: goalCategorySchema.optional(),
   occurredAt: z.string().datetime({ offset: true }).optional(),
-  paymentMethodIndex: z.literal(1).default(1),
+  paymentMethodIndex: z.literal(2).default(2),
   idempotencyKey: z.string().trim().min(1),
   source: z.literal("telegram_whisper"),
   tagIds: z.array(z.string().uuid()).optional(),

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import type { Income } from "@money-manager/types";
+import { formatOccurredAtPtBr } from "@money-manager/utils/date";
+import { useTransactionModals } from "../../providers/transaction-modals";
 import { TransactionListFiltersBar } from "../transactions/transaction-list-filters";
 import { apiFetch } from "../../../lib/api";
 import {
   filtersToSearchParams,
+  formatFilterPeriodLabel,
   type TransactionListFilters,
 } from "../../../lib/transaction-list-filters";
 import { Edit3, Filter, Trash2 } from "lucide-react";
@@ -27,17 +29,16 @@ function formatCurrency(cents: number) {
 }
 
 function formatDate(dateStr: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(dateStr));
+  return formatOccurredAtPtBr(dateStr);
 }
 
 export function IncomeList() {
+  const { refreshToken, openIncomeEditModal } = useTransactionModals();
   const [filters, setFilters] = useState<TransactionListFilters | null>(null);
   const [offset, setOffset] = useState(0);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalAmountCents, setTotalAmountCents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,10 +60,11 @@ export function IncomeList() {
       if (!res.ok) throw new Error("Falha ao carregar receitas");
       const data = (await res.json()) as {
         items: Income[];
-        meta: { total: number };
+        meta: { total: number; totalAmountCents: number };
       };
       setIncomes(data.items);
       setTotal(data.meta.total);
+      setTotalAmountCents(data.meta.totalAmountCents ?? 0);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Falha ao carregar receitas",
@@ -70,7 +72,7 @@ export function IncomeList() {
     } finally {
       setLoading(false);
     }
-  }, [filters, offset]);
+  }, [filters, offset, refreshToken]);
 
   useEffect(() => {
     void load();
@@ -94,9 +96,23 @@ export function IncomeList() {
     <div className="space-y-8">
       <TransactionListFiltersBar onFiltersChange={handleFiltersChange} />
 
-      <p className="text-sm text-zinc-500">
-        {total} {total === 1 ? "receita" : "receitas"}
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="text-sm text-zinc-500">
+          {total} {total === 1 ? "receita" : "receitas"}
+          {filters ? (
+            <span className="text-zinc-600">
+              {" "}
+              · {formatFilterPeriodLabel(filters.month, filters.year)}
+            </span>
+          ) : null}
+        </p>
+        <p className="text-sm text-zinc-400">
+          Total recebido:{" "}
+          <span className="font-mono font-semibold text-emerald-400">
+            {formatCurrency(totalAmountCents)}
+          </span>
+        </p>
+      </div>
 
       {error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
@@ -169,12 +185,13 @@ export function IncomeList() {
                 </div>
 
                 <div className="ml-4 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Link
-                    to={`/dashboard/incomes/${income.id}/edit`}
+                  <button
+                    type="button"
+                    onClick={() => openIncomeEditModal(income.id)}
                     className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 transition-all hover:bg-white/10 hover:text-white"
                   >
                     <Edit3 className="h-4 w-4" />
-                  </Link>
+                  </button>
                   <button
                     type="button"
                     onClick={() => void handleDelete(income.id)}

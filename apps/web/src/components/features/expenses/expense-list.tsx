@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import type { Expense } from "@money-manager/types";
 import { GOAL_CATEGORY_LABELS } from "@money-manager/types";
+import { formatOccurredAtPtBr } from "@money-manager/utils/date";
+import { useTransactionModals } from "../../providers/transaction-modals";
 import { TransactionListFiltersBar } from "../transactions/transaction-list-filters";
 import { apiFetch } from "../../../lib/api";
 import {
   filtersToSearchParams,
+  formatFilterPeriodLabel,
   type TransactionListFilters,
 } from "../../../lib/transaction-list-filters";
 import { Edit3, Filter, Trash2 } from "lucide-react";
@@ -29,17 +31,16 @@ function formatCurrency(cents: number) {
 }
 
 function formatDate(dateStr: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(dateStr));
+  return formatOccurredAtPtBr(dateStr);
 }
 
 export function ExpenseList() {
+  const { refreshToken, openExpenseEditModal } = useTransactionModals();
   const [filters, setFilters] = useState<TransactionListFilters | null>(null);
   const [offset, setOffset] = useState(0);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalAmountCents, setTotalAmountCents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,10 +62,11 @@ export function ExpenseList() {
       if (!res.ok) throw new Error("Falha ao carregar despesas");
       const data = (await res.json()) as {
         items: Expense[];
-        meta: { total: number };
+        meta: { total: number; totalAmountCents: number };
       };
       setExpenses(data.items);
       setTotal(data.meta.total);
+      setTotalAmountCents(data.meta.totalAmountCents ?? 0);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Falha ao carregar despesas",
@@ -72,7 +74,7 @@ export function ExpenseList() {
     } finally {
       setLoading(false);
     }
-  }, [filters, offset]);
+  }, [filters, offset, refreshToken]);
 
   useEffect(() => {
     void load();
@@ -96,9 +98,23 @@ export function ExpenseList() {
     <div className="space-y-8">
       <TransactionListFiltersBar onFiltersChange={handleFiltersChange} />
 
-      <p className="text-sm text-zinc-500">
-        {total} {total === 1 ? "despesa" : "despesas"}
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="text-sm text-zinc-500">
+          {total} {total === 1 ? "despesa" : "despesas"}
+          {filters ? (
+            <span className="text-zinc-600">
+              {" "}
+              · {formatFilterPeriodLabel(filters.month, filters.year)}
+            </span>
+          ) : null}
+        </p>
+        <p className="text-sm text-zinc-400">
+          Total gasto:{" "}
+          <span className="font-mono font-semibold text-white">
+            {formatCurrency(totalAmountCents)}
+          </span>
+        </p>
+      </div>
 
       {error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
@@ -178,12 +194,13 @@ export function ExpenseList() {
                 </div>
 
                 <div className="ml-4 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Link
-                    to={`/dashboard/expenses/${expense.id}/edit`}
+                  <button
+                    type="button"
+                    onClick={() => openExpenseEditModal(expense.id)}
                     className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 transition-all hover:bg-white/10 hover:text-white"
                   >
                     <Edit3 className="h-4 w-4" />
-                  </Link>
+                  </button>
                   <button
                     type="button"
                     onClick={() => void handleDelete(expense.id)}

@@ -1,7 +1,7 @@
 import { getDb, incomeTags, incomes } from "@money-manager/db";
 import type { Income, IncomeListResponse } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, sum } from "drizzle-orm";
 import { NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
 import type {
@@ -156,7 +156,7 @@ export async function listIncomes(
   filters = await applyTagFilter(userId, query, filters);
   const whereClause = and(...filters);
 
-  const [rows, [countRow]] = await Promise.all([
+  const [rows, [countRow], [sumRow]] = await Promise.all([
     getDb()
       .select()
       .from(incomes)
@@ -168,6 +168,10 @@ export async function listIncomes(
       .select({ total: count() })
       .from(incomes)
       .where(whereClause),
+    getDb()
+      .select({ totalAmountCents: sum(incomes.amountCents) })
+      .from(incomes)
+      .where(whereClause),
   ]);
 
   const items = await Promise.all(rows.map((row) => toIncome(row)));
@@ -176,6 +180,7 @@ export async function listIncomes(
     items,
     meta: {
       total: Number(countRow?.total ?? 0),
+      totalAmountCents: Number(sumRow?.totalAmountCents ?? 0),
       limit: query.limit,
       offset: query.offset,
     },

@@ -26,10 +26,7 @@ export function TagForm({ tagId, parentId, parentName }: TagFormProps) {
   const isSubTagForm = parentId !== undefined && parentId !== null;
 
   const parentOptions = useMemo(
-    () => [
-      { value: "", label: "Nenhuma (tag raiz)" },
-      ...rootTags.map((t) => ({ value: t.id, label: t.name })),
-    ],
+    () => rootTags.map((t) => ({ value: t.id, label: t.name })),
     [rootTags],
   );
 
@@ -175,7 +172,7 @@ export function TagForm({ tagId, parentId, parentName }: TagFormProps) {
             options={parentOptions}
             value={selectedParentId}
             onChange={setSelectedParentId}
-            placeholder="Selecione tag pai…"
+            placeholder="Nenhuma (tag raiz)"
           />
           <p className="text-xs text-zinc-600">
             Sub-tags só podem ter um nível: o pai deve ser uma tag raiz.

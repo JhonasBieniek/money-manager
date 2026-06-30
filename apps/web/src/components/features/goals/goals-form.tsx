@@ -79,11 +79,7 @@ function maxAllowedForCategory(goals: GoalRow[], category: string) {
   return 100 - otherTotal;
 }
 
-interface GoalsFormProps {
-  onSaveSuccess?: () => void;
-}
-
-export function GoalsForm({ onSaveSuccess }: GoalsFormProps) {
+export function GoalsForm() {
   const [goals, setGoals] = useState<GoalRow[]>(DEFAULT_GOALS);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -166,7 +162,6 @@ export function GoalsForm({ onSaveSuccess }: GoalsFormProps) {
       }
 
       setSuccess(true);
-      onSaveSuccess?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao salvar metas");
     } finally {

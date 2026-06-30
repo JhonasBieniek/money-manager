@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../../lib/api";
 import { cn } from "../../../lib/cn";
@@ -8,9 +8,18 @@ import { motion } from "framer-motion";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Calendar as CalendarIcon,
   Target,
   TrendingUp,
+  X,
 } from "lucide-react";
+import { FilterSelect } from "../../ui/filter-select";
+import {
+  MONTH_OPTIONS,
+  buildYearOptions,
+  formatFilterPeriodLabel,
+  getCurrentMonthYear,
+} from "../../../lib/transaction-list-filters";
 
 const categoryStyles: Record<
   string,
@@ -60,6 +69,9 @@ function usageBarColor(usagePercent: number) {
 }
 
 export function DashboardSummary() {
+  const defaultPeriod = getCurrentMonthYear();
+  const [month, setMonth] = useState(defaultPeriod.month);
+  const [year, setYear] = useState(defaultPeriod.year);
   const [summary, setSummary] = useState<DashboardSummary>({
     totalIncomes: 0,
     totalExpenses: 0,
@@ -69,13 +81,33 @@ export function DashboardSummary() {
   });
   const [loading, setLoading] = useState(true);
 
+  const yearOptions = useMemo(
+    () =>
+      buildYearOptions().map((y) => ({
+        value: String(y),
+        label: String(y),
+      })),
+    [],
+  );
+
+  const monthOptions = useMemo(
+    () =>
+      MONTH_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    [],
+  );
+
+  const isCurrentPeriod = (() => {
+    const current = getCurrentMonthYear();
+    return month === current.month && year === current.year;
+  })();
+
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
-
         const res = await apiFetch(
           `/v1/dashboard/summary?year=${year}&month=${month}`,
         );
@@ -90,11 +122,20 @@ export function DashboardSummary() {
       }
     }
     void load();
-  }, []);
+  }, [month, year]);
+
+  function resetPeriod() {
+    const current = getCurrentMonthYear();
+    setMonth(current.month);
+    setYear(current.year);
+  }
+
+  const periodLabel = formatFilterPeriodLabel(month, year);
 
   if (loading) {
     return (
       <div className="space-y-8">
+        <div className="flex h-14 w-full max-w-md animate-pulse rounded-2xl bg-white/5" />
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <div
@@ -119,6 +160,43 @@ export function DashboardSummary() {
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-zinc-500">
+          Resumo de{" "}
+          <span className="font-medium text-zinc-300">{periodLabel}</span>
+        </p>
+        <div className="flex items-center gap-2">
+          <div className="flex h-12 min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-4 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07]">
+            <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
+            <FilterSelect
+              value={month}
+              onChange={setMonth}
+              options={monthOptions}
+              ariaLabel="Mês"
+            />
+            <span className="text-zinc-700">/</span>
+            <FilterSelect
+              value={year}
+              onChange={setYear}
+              options={yearOptions}
+              ariaLabel="Ano"
+              className="max-w-[5.5rem]"
+            />
+          </div>
+          {!isCurrentPeriod ? (
+            <button
+              type="button"
+              onClick={resetPeriod}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-500/10 bg-red-500/10 text-red-400 transition-all hover:bg-red-500/20 active:scale-95"
+              aria-label="Voltar ao mês atual"
+              title="Mês atual"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -201,35 +279,12 @@ export function DashboardSummary() {
         </motion.div>
       </div>
 
-      {summary.expensesByCategory.length > 0 ? (
-        <div>
-          <h2 className="mb-4 text-lg font-bold text-white">
-            Despesas por Categoria
-          </h2>
-          <div className="glass rounded-[2rem] p-6">
-            <div className="space-y-3">
-              {summary.expensesByCategory.map((item) => (
-                <div
-                  key={item.category}
-                  className="flex items-center justify-between rounded-xl bg-white/5 p-3"
-                >
-                  <span className="text-sm font-medium text-zinc-200">
-                    {item.category}
-                  </span>
-                  <span className="font-mono text-sm text-red-400">
-                    {formatCurrency(item.amount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {summary.goalsUsage.length > 0 ? (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Metas do Mês</h2>
+            <h2 className="text-lg font-bold text-white">
+              Metas de {periodLabel}
+            </h2>
             <Link
               to="/dashboard/goals"
               className="text-sm text-emerald-400 hover:text-emerald-300"

@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { IncomeSource } from "@money-manager/types";
+import { dateInputToIso, isoToDateInput } from "@money-manager/utils/date";
 import { apiFetch } from "../../../lib/api";
 import { cn } from "../../../lib/cn";
 import { SearchableMultiSelect } from "../../ui/searchable-select";
+import {
+  MoneyAmountInput,
+  parseMoneyAmountInput,
+} from "../../ui/money-amount-input";
 import {
   ArrowRight,
   Briefcase,
@@ -27,6 +32,7 @@ interface IncomeFormProps {
     occurredAt: string;
   };
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 const sourceOptions = [
@@ -37,7 +43,7 @@ const sourceOptions = [
   { id: "other" as IncomeSource, label: "Outros", icon: MoreHorizontal },
 ];
 
-export function IncomeForm({ initialData, onSuccess }: IncomeFormProps) {
+export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(
@@ -51,8 +57,8 @@ export function IncomeForm({ initialData, onSuccess }: IncomeFormProps) {
   );
   const [occurredAt, setOccurredAt] = useState(
     initialData?.occurredAt
-      ? new Date(initialData.occurredAt).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
+      ? isoToDateInput(initialData.occurredAt)
+      : isoToDateInput(new Date().toISOString()),
   );
   const [error, setError] = useState<string | null>(null);
   const [tags, setTags] = useState<Array<{ id: string; name: string }>>([]);
@@ -88,10 +94,10 @@ export function IncomeForm({ initialData, onSuccess }: IncomeFormProps) {
     setError(null);
 
     const payload = {
-      amount: parseFloat(amount),
+      amount: parseMoneyAmountInput(amount),
       description,
       source,
-      occurredAt: new Date(occurredAt).toISOString(),
+      occurredAt: dateInputToIso(occurredAt),
       tagIds: selectedTags.length > 0 ? selectedTags : undefined,
     };
 
@@ -138,15 +144,7 @@ export function IncomeForm({ initialData, onSuccess }: IncomeFormProps) {
             <span className="absolute left-6 top-1/2 -translate-y-1/2 text-4xl font-bold text-zinc-600">
               R$
             </span>
-            <input
-              type="number"
-              step="0.01"
-              required
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0,00"
-              className="w-full rounded-[2rem] border border-white/5 bg-white/5 px-20 py-10 text-6xl font-black text-white outline-none transition-all placeholder:text-zinc-800 focus:bg-white/10 focus:ring-1 focus:ring-emerald-500/30"
-            />
+            <MoneyAmountInput value={amount} onChange={setAmount} required />
           </div>
         </div>
 
@@ -229,7 +227,7 @@ export function IncomeForm({ initialData, onSuccess }: IncomeFormProps) {
       <div className="flex items-center justify-between border-t border-white/5 pt-10">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={onCancel ?? (() => navigate(-1))}
           className="text-sm font-bold text-zinc-500 transition-colors hover:text-white"
         >
           Cancelar

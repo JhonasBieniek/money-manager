@@ -230,3 +230,38 @@ describe("getAccountByChatId", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe("getAccountByUserId", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("retorna conta vinculada ao usuário", async () => {
+    const linkedAt = new Date("2026-01-01T12:00:00.000Z");
+    dbMock.select.mockReturnValue(
+      chainLimit([
+        {
+          userId: "user-1",
+          chatId: 12345n,
+          username: "tester",
+          linkedAt,
+        },
+      ]),
+    );
+
+    const result = await telegramService.getAccountByUserId("user-1");
+    expect(result).toEqual({
+      userId: "user-1",
+      chatId: "12345",
+      username: "tester",
+      linkedAt: linkedAt.toISOString(),
+    });
+  });
+
+  it("retorna null quando usuário não possui vínculo", async () => {
+    dbMock.select.mockReturnValue(chainLimit([]));
+
+    const result = await telegramService.getAccountByUserId("user-404");
+    expect(result).toBeNull();
+  });
+});

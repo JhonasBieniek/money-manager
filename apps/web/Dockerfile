@@ -9,17 +9,20 @@ ENV VITE_API_URL=$VITE_API_URL \
     TURBO_TELEMETRY_DISABLED=1
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs ./
 COPY packages/types/package.json ./packages/types/
+COPY packages/utils/package.json ./packages/utils/
 COPY apps/web/package.json ./apps/web/
 RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 COPY packages/types ./packages/types
+COPY packages/utils ./packages/utils
 COPY apps/web ./apps/web
 RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 RUN --mount=type=cache,id=money-manager-pnpm,target=/pnpm/store \
-    pnpm --filter @money-manager/web run build
+    --mount=type=cache,id=money-manager-turbo,target=/app/.turbo \
+    pnpm --filter @money-manager/web... run build
 
 FROM nginx:alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

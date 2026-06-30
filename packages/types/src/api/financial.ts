@@ -17,6 +17,7 @@ export type IncomeSource =
 
 export interface PaginationMeta {
   total: number;
+  totalAmountCents: number;
   limit: number;
   offset: number;
 }

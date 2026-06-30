@@ -47,7 +47,7 @@ export type MessageSyncEnv = {
   internal: InternalApiClient;
 };
 
-const BOT_PAYMENT_METHOD_INDEX = 1;
+const BOT_PAYMENT_METHOD_INDEX = 2;
 const LOW_LANGUAGE_CONFIDENCE = 0.6;
 
 function resolveAudioFromContext(ctx: Context): {

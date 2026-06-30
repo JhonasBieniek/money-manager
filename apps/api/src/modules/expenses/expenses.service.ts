@@ -6,13 +6,15 @@ import type {
   PaymentMethod,
 } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
-import { and, count, desc, eq, gte, ilike, inArray, isNull, lt } from "drizzle-orm";
-import { NotFoundError } from "../../shared/errors/app-error.js";
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, sum } from "drizzle-orm";
+import { BadRequestError, NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
 import type {
   CreateExpenseBody,
   CreateBotExpenseBody,
+  CategorizeExpenseBody,
   ListExpensesQuery,
+  ListUncategorizedQuery,
   UpdateExpenseBody,
 } from "./expenses.schema.js";
 
@@ -265,7 +267,7 @@ export async function listExpenses(
   filters = await applyTagFilter(userId, query, filters);
   const whereClause = and(...filters);
 
-  const [rows, [countRow]] = await Promise.all([
+  const [rows, [countRow], [sumRow]] = await Promise.all([
     getDb()
       .select()
       .from(expenses)
@@ -277,6 +279,10 @@ export async function listExpenses(
       .select({ total: count() })
       .from(expenses)
       .where(whereClause),
+    getDb()
+      .select({ totalAmountCents: sum(expenses.amountCents) })
+      .from(expenses)
+      .where(whereClause),
   ]);
 
   const items = await Promise.all(rows.map((row) => toExpense(row)));
@@ -285,6 +291,7 @@ export async function listExpenses(
     items,
     meta: {
       total: Number(countRow?.total ?? 0),
+      totalAmountCents: Number(sumRow?.totalAmountCents ?? 0),
       limit: query.limit,
       offset: query.offset,
     },
@@ -414,4 +421,103 @@ export async function deleteExpense(userId: string, expenseId: string): Promise<
       .set({ deletedAt: now, updatedAt: now })
       .where(eq(expenses.id, expenseId));
   });
+}
+
+function uncategorizedFilters(userId: string) {
+  return [
+    eq(expenses.userId, userId),
+    isNull(expenses.deletedAt),
+    isNull(expenses.goalCategory),
+  ];
+}
+
+export async function countUncategorizedExpenses(userId: string): Promise<number> {
+  const [row] = await getDb()
+    .select({ count: count() })
+    .from(expenses)
+    .where(and(...uncategorizedFilters(userId)));
+
+  return Number(row?.count ?? 0);
+}
+
+export async function listUncategorizedExpenses(
+  userId: string,
+  query: ListUncategorizedQuery,
+): Promise<{ items: Expense[]; total: number }> {
+  const filters = uncategorizedFilters(userId);
+
+  const rows = await getDb()
+    .select()
+    .from(expenses)
+    .where(and(...filters))
+    .orderBy(desc(expenses.occurredAt))
+    .limit(query.limit)
+    .offset(query.offset);
+
+  const [countRow] = await getDb()
+    .select({ count: count() })
+    .from(expenses)
+    .where(and(...filters));
+
+  const items = await Promise.all(rows.map((row) => toExpense(row)));
+
+  return {
+    items,
+    total: Number(countRow?.count ?? items.length),
+  };
+}
+
+export async function categorizeExpense(
+  userId: string,
+  expenseId: string,
+  input: CategorizeExpenseBody,
+): Promise<Expense> {
+  if (input.tagIds?.length) {
+    await assertTagsBelongToUser(userId, input.tagIds);
+  }
+
+  await getDb().transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.id, expenseId),
+          eq(expenses.userId, userId),
+          isNull(expenses.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!existing) {
+      throw new NotFoundError("Despesa não encontrada");
+    }
+
+    if (existing.goalCategory !== null) {
+      throw new BadRequestError("Despesa já possui categoria");
+    }
+
+    await tx
+      .update(expenses)
+      .set({
+        goalCategory: input.goalCategory,
+        updatedAt: new Date(),
+      })
+      .where(eq(expenses.id, expenseId));
+
+    if (input.tagIds !== undefined) {
+      await tx.delete(expenseTags).where(eq(expenseTags.expenseId, expenseId));
+      if (input.tagIds.length > 0) {
+        await tx.insert(expenseTags).values(
+          input.tagIds.map((tagId) => ({
+            expenseId,
+            tagId,
+          })),
+        );
+      }
+    }
+  });
+
+  return getExpense(userId, expenseId);
 }

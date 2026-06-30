@@ -19,7 +19,7 @@ describe("buildBotExpenseRequest", () => {
       amount: 40,
       description: "manga",
       occurredAt: "2025-05-20T14:30:00.000Z",
-      paymentMethodIndex: 1,
+      paymentMethodIndex: 2,
       source: "telegram_whisper",
       idempotencyKey: "tg:123:456:0",
     });

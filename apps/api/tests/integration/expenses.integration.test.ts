@@ -285,4 +285,70 @@ describeWithDb("expenses integration", () => {
     expect(second.status).toBe(201);
     expect(second.body.id).toBe(first.body.id);
   });
+
+  it("lista e conta despesas sem goalCategory", async () => {
+    const INTERNAL_API_KEY = "dev-internal-key-change-me";
+    process.env.INTERNAL_API_KEY = INTERNAL_API_KEY;
+    const { accessToken } = await registerUser(app);
+    const chatId = "999888777";
+
+    const tokenRes = await request(app)
+      .post("/v1/telegram/link-token")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    await request(app)
+      .post("/v1/internal/telegram/link")
+      .set("x-internal-api-key", INTERNAL_API_KEY)
+      .send({ token: tokenRes.body.token, chatId });
+
+    await request(app)
+      .post("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        amount: 10,
+        description: "Com categoria",
+        goalCategory: "custos-fixos",
+        paymentMethodIndex: 0,
+      });
+
+    const botExpense = await request(app)
+      .post("/v1/internal/expenses")
+      .set("x-internal-api-key", INTERNAL_API_KEY)
+      .send({
+        chatId,
+        amount: 25,
+        description: "uber",
+        idempotencyKey: "tg:uncat:1",
+        source: "telegram_whisper",
+      });
+
+    const countRes = await request(app)
+      .get("/v1/expenses/uncategorized/count")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(countRes.status).toBe(200);
+    expect(countRes.body.count).toBe(1);
+
+    const listRes = await request(app)
+      .get("/v1/expenses/uncategorized")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.items).toHaveLength(1);
+    expect(listRes.body.items[0].id).toBe(botExpense.body.id);
+
+    const categorizeRes = await request(app)
+      .patch(`/v1/expenses/${botExpense.body.id}/categorize`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ goalCategory: "prazeres" });
+
+    expect(categorizeRes.status).toBe(200);
+    expect(categorizeRes.body.goalCategory).toBe("prazeres");
+
+    const countAfter = await request(app)
+      .get("/v1/expenses/uncategorized/count")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(countAfter.body.count).toBe(0);
+  });
 });

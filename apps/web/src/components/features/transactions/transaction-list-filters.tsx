@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { SearchableMultiSelect } from "../../ui/searchable-select";
+import { FilterSelect } from "../../ui/filter-select";
 import { apiFetch } from "../../../lib/api";
 import {
   EMPTY_TRANSACTION_LIST_FILTERS,
+  MONTH_OPTIONS,
   buildYearOptions,
   filtersToSearchParams,
   hasActiveFilters,
@@ -50,7 +52,23 @@ export function TransactionListFiltersBar({
     [tags],
   );
 
-  const yearOptions = useMemo(() => buildYearOptions(), []);
+  const yearOptions = useMemo(
+    () =>
+      buildYearOptions().map((year) => ({
+        value: String(year),
+        label: String(year),
+      })),
+    [],
+  );
+
+  const monthOptions = useMemo(
+    () =>
+      MONTH_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    [],
+  );
 
   const syncUrl = useCallback(
     (next: TransactionListFilters) => {
@@ -111,35 +129,22 @@ export function TransactionListFiltersBar({
           />
         </div>
 
-        <div className="flex h-14 min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-4">
+        <div className="flex h-14 min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-4 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07]">
           <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
-          <select
+          <FilterSelect
             value={filters.month}
-            onChange={(e) => updateFilters({ month: e.target.value })}
-            className="bg-transparent text-sm text-zinc-300 outline-none"
-            aria-label="Mês"
-          >
-            <option value="">Mês</option>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={String(i + 1)}>
-                {String(i + 1).padStart(2, "0")}
-              </option>
-            ))}
-          </select>
+            onChange={(month) => updateFilters({ month })}
+            options={monthOptions}
+            ariaLabel="Mês"
+          />
           <span className="text-zinc-700">/</span>
-          <select
+          <FilterSelect
             value={filters.year}
-            onChange={(e) => updateFilters({ year: e.target.value })}
-            className="bg-transparent text-sm text-zinc-300 outline-none"
-            aria-label="Ano"
-          >
-            <option value="">Ano</option>
-            {yearOptions.map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
-            ))}
-          </select>
+            onChange={(year) => updateFilters({ year })}
+            options={yearOptions}
+            ariaLabel="Ano"
+            className="max-w-[5.5rem]"
+          />
         </div>
 
         {active ? (

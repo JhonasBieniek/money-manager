@@ -148,3 +148,29 @@ export async function getAccountByChatId(
     linkedAt: row.linkedAt.toISOString(),
   };
 }
+
+export async function getAccountByUserId(
+  userId: string,
+): Promise<TelegramAccountResponse | null> {
+  const [row] = await getDb()
+    .select()
+    .from(telegramAccounts)
+    .where(
+      and(
+        eq(telegramAccounts.userId, userId),
+        isNull(telegramAccounts.revokedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    userId: row.userId,
+    chatId: String(row.chatId),
+    username: row.username,
+    linkedAt: row.linkedAt.toISOString(),
+  };
+}

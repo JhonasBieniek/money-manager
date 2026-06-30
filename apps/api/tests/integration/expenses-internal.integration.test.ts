@@ -102,6 +102,7 @@ describeWithDb("expenses internal integration", () => {
     expect(expense).toBeDefined();
     expect(expense.goalCategory).toBeNull();
     expect(expense.source).toBe("telegram_whisper");
+    expect(expense.paymentMethod).toBe("pix");
   });
 
   it("rejeita sem x-internal-api-key", async () => {
