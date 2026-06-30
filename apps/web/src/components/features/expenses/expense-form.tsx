@@ -164,7 +164,7 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
   ];
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-10">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8 sm:space-y-10">
       {error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
           {error}
@@ -261,9 +261,9 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
                     type="button"
                     onClick={() => setPaymentMethodIndex(m.id)}
                     className={cn(
-                      "flex h-14 flex-1 flex-col items-center justify-center gap-1 rounded-2xl border transition-all duration-300",
+                      "flex h-12 flex-1 flex-col items-center justify-center gap-1 rounded-2xl border transition-all duration-300 sm:h-14",
                       isSelected
-                        ? "scale-105 border-emerald-500 bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20"
+                        ? "border-emerald-500 bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20 sm:scale-105"
                         : "border-white/5 bg-white/5 text-zinc-500 hover:bg-white/10",
                     )}
                   >
@@ -295,11 +295,11 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between border-t border-white/5 pt-10">
+      <div className="flex flex-col-reverse gap-4 border-t border-white/5 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-10">
         <button
           type="button"
           onClick={onCancel ?? (() => navigate(-1))}
-          className="text-sm font-bold text-zinc-500 transition-colors hover:text-white"
+          className="w-full py-2 text-center text-sm font-bold text-zinc-500 transition-colors hover:text-white sm:w-auto sm:py-0 sm:text-left"
         >
           Cancelar
         </button>
@@ -307,7 +307,7 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
         <button
           type="submit"
           disabled={loading}
-          className="group relative flex h-16 items-center gap-4 rounded-3xl bg-white px-10 text-lg font-black text-zinc-950 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50"
+          className="group relative flex h-14 w-full items-center justify-center gap-3 rounded-3xl bg-white px-6 text-base font-black text-zinc-950 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 sm:h-16 sm:w-auto sm:gap-4 sm:px-10 sm:text-lg"
         >
           {loading ? (
             <span className="flex items-center gap-2">

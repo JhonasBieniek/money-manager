@@ -148,52 +148,50 @@ export function ExpenseList() {
             return (
               <div
                 key={expense.id}
-                className="group glass flex items-center gap-6 rounded-2xl p-6 transition-all hover:border-white/10 hover:bg-white/5"
+                className="group glass flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6"
               >
-                <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 transition-colors group-hover:bg-emerald-500/10 group-hover:text-emerald-400">
-                  <span className="text-[10px] font-bold uppercase tracking-tighter">
-                    {dateParts[1]}
-                  </span>
-                  <span className="text-lg font-bold leading-none">
-                    {dateParts[0]}
-                  </span>
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-lg font-bold text-white">
-                    {expense.description}
-                  </h4>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-zinc-500">
-                    <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-xs">
-                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {expense.goalCategory
-                        ? GOAL_CATEGORY_LABELS[expense.goalCategory]
-                        : "Sem meta"}
+                <div className="flex min-w-0 items-start gap-3 sm:contents">
+                  <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 transition-colors group-hover:bg-emerald-500/10 group-hover:text-emerald-400 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <span className="text-[10px] font-bold uppercase tracking-tighter">
+                      {dateParts[1]}
                     </span>
-                    {expense.tagIds && expense.tagIds.length > 0 ? (
-                      <>
-                        <span className="hidden sm:inline">•</span>
-                        <span className="hidden text-xs sm:inline">
+                    <span className="text-base font-bold leading-none sm:text-lg">
+                      {dateParts[0]}
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-base font-bold text-white sm:text-lg">
+                      {expense.description}
+                    </h4>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-500 sm:gap-3">
+                      <span className="flex max-w-full items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-xs">
+                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                        <span className="truncate">
+                          {expense.goalCategory
+                            ? GOAL_CATEGORY_LABELS[expense.goalCategory]
+                            : "Sem meta"}
+                        </span>
+                      </span>
+                      {expense.tagIds && expense.tagIds.length > 0 ? (
+                        <span className="text-xs">
                           {expense.tagIds.length} tag
                           {expense.tagIds.length === 1 ? "" : "s"}
                         </span>
-                      </>
-                    ) : null}
-                    <span className="hidden sm:inline">•</span>
-                    <span className="hidden sm:inline">
-                      {PAYMENT_LABELS[expense.paymentMethod] ??
-                        expense.paymentMethod}
-                    </span>
+                      ) : null}
+                      <span className="text-xs">
+                        {PAYMENT_LABELS[expense.paymentMethod] ??
+                          expense.paymentMethod}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="text-right">
-                  <p className="font-mono text-xl font-bold text-white">
+                  <p className="shrink-0 font-mono text-lg font-bold text-white sm:text-right sm:text-xl">
                     {formatCurrency(expense.amountCents)}
                   </p>
                 </div>
 
-                <div className="ml-4 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex items-center justify-end gap-2 border-t border-white/5 pt-3 sm:ml-4 sm:border-0 sm:pt-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                   <button
                     type="button"
                     onClick={() => openExpenseEditModal(expense.id)}

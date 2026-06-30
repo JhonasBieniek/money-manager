@@ -125,11 +125,11 @@ export function TransactionListFiltersBar({
             placeholder="Buscar por descrição..."
             value={filters.description}
             onChange={(e) => updateFilters({ description: e.target.value })}
-            className="h-14 w-full rounded-2xl border border-white/5 bg-white/5 pl-12 pr-4 text-sm text-white outline-none transition-all placeholder:text-zinc-600 focus:bg-white/10 focus:ring-1 focus:ring-emerald-500/50"
+            className="h-12 w-full rounded-2xl border border-white/5 bg-white/5 pl-12 pr-4 text-sm text-white outline-none transition-all placeholder:text-zinc-600 focus:bg-white/10 focus:ring-1 focus:ring-emerald-500/50 sm:h-14"
           />
         </div>
 
-        <div className="flex h-14 min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-4 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07]">
+        <div className="flex h-12 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-3 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07] sm:h-14 sm:gap-3 sm:px-4">
           <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
           <FilterSelect
             value={filters.month}
@@ -151,7 +151,7 @@ export function TransactionListFiltersBar({
           <button
             type="button"
             onClick={resetFilters}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-red-500/10 bg-red-500/10 text-red-400 transition-all hover:bg-red-500/20 active:scale-95"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-500/10 bg-red-500/10 text-red-400 transition-all hover:bg-red-500/20 active:scale-95 sm:h-14 sm:w-14"
             aria-label="Limpar filtros"
           >
             <X className="h-5 w-5" />

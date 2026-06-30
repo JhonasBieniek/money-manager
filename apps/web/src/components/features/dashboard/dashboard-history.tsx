@@ -83,12 +83,13 @@ export function DashboardHistory() {
         ))}
       </div>
 
-      <div className="glass rounded-[2.5rem] p-6">
-        <h3 className="mb-6 text-lg font-bold text-white">
+      <div className="glass rounded-3xl p-4 sm:rounded-[2.5rem] sm:p-6">
+        <h3 className="mb-4 text-base font-bold text-white sm:mb-6 sm:text-lg">
           Receitas vs Despesas
         </h3>
 
-        <div className="mb-6 flex h-48 items-end justify-between gap-4">
+        <div className="-mx-1 overflow-x-auto px-1 pb-2">
+          <div className="mb-4 flex h-40 min-w-[18rem] items-end justify-between gap-2 sm:mb-6 sm:h-48 sm:min-w-0 sm:gap-4">
           {history.map((h, i) => {
             const incomeHeight = (h.incomes / maxValue) * 100;
             const expenseHeight = (h.expenses / maxValue) * 100;
@@ -99,9 +100,9 @@ export function DashboardHistory() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="flex flex-1 flex-col items-center gap-2"
+                className="flex min-w-[2.5rem] flex-1 flex-col items-center gap-2"
               >
-                <div className="flex h-36 w-full items-end justify-center gap-1">
+                <div className="flex h-28 w-full items-end justify-center gap-1 sm:h-36">
                   <motion.div
                     initial={{ height: 0 }}
                     animate={{ height: `${incomeHeight}%` }}
@@ -121,9 +122,10 @@ export function DashboardHistory() {
               </motion.div>
             );
           })}
+          </div>
         </div>
 
-        <div className="flex items-center justify-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-sm sm:gap-6">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-sm bg-emerald-500" />
             <span className="text-zinc-400">Receitas</span>
@@ -135,8 +137,10 @@ export function DashboardHistory() {
         </div>
       </div>
 
-      <div className="glass rounded-[2.5rem] p-6">
-        <h3 className="mb-4 text-lg font-bold text-white">Detalhamento</h3>
+      <div className="glass rounded-3xl p-4 sm:rounded-[2.5rem] sm:p-6">
+        <h3 className="mb-4 text-base font-bold text-white sm:text-lg">
+          Detalhamento
+        </h3>
         <div className="space-y-3">
           {history
             .slice()
@@ -144,7 +148,7 @@ export function DashboardHistory() {
             .map((h) => (
               <div
                 key={h.month}
-                className="flex items-center justify-between rounded-xl bg-white/5 p-3"
+                className="flex flex-col gap-2 rounded-xl bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <span className="font-bold text-white">
@@ -152,7 +156,7 @@ export function DashboardHistory() {
                   </span>
                   <span className="ml-2 text-xs text-zinc-500">{h.year}</span>
                 </div>
-                <div className="flex gap-6 text-sm">
+                <div className="grid grid-cols-3 gap-2 text-xs sm:flex sm:gap-6 sm:text-sm">
                   <span className="font-mono text-emerald-400">
                     {formatCurrency(h.incomes)}
                   </span>

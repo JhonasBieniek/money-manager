@@ -40,8 +40,8 @@ export function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-zinc-950 p-6">
-      <div className="glass w-full max-w-md rounded-2xl p-8">
+    <main className="flex min-h-dvh items-center justify-center bg-zinc-950 p-4 sm:p-6">
+      <div className="glass w-full max-w-md rounded-2xl p-6 sm:p-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
           Money Manager
         </p>

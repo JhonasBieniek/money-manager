@@ -165,8 +165,8 @@ export function DashboardSummary() {
           Resumo de{" "}
           <span className="font-medium text-zinc-300">{periodLabel}</span>
         </p>
-        <div className="flex items-center gap-2">
-          <div className="flex h-12 min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-4 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07]">
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+          <div className="flex h-11 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-2xl border border-white/5 bg-white/5 px-3 transition-colors focus-within:border-emerald-500/30 focus-within:bg-white/[0.07] sm:h-12 sm:gap-3 sm:px-4">
             <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
             <FilterSelect
               value={month}
@@ -187,7 +187,7 @@ export function DashboardSummary() {
             <button
               type="button"
               onClick={resetPeriod}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-500/10 bg-red-500/10 text-red-400 transition-all hover:bg-red-500/20 active:scale-95"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-red-500/10 bg-red-500/10 text-red-400 transition-all hover:bg-red-500/20 active:scale-95 sm:h-12 sm:w-12"
               aria-label="Voltar ao mês atual"
               title="Mês atual"
             >
@@ -197,12 +197,12 @@ export function DashboardSummary() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0, duration: 0.5 }}
-          className="glass group relative overflow-hidden rounded-[2.5rem] p-6"
+          className="glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -223,7 +223,7 @@ export function DashboardSummary() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="glass group relative overflow-hidden rounded-[2.5rem] p-6"
+          className="glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -245,7 +245,7 @@ export function DashboardSummary() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
           className={cn(
-            "glass group relative overflow-hidden rounded-[2.5rem] p-6",
+            "glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6",
             balanceIsPositive ? "border-emerald-500/20" : "border-red-500/20",
           )}
         >

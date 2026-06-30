@@ -204,7 +204,7 @@ export function GoalsForm() {
         </motion.div>
       ) : null}
 
-      <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 p-6">
+      <div className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <p className="text-sm font-bold text-zinc-400">Total Alocado</p>
           <p
@@ -240,19 +240,19 @@ export function GoalsForm() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="group glass rounded-2xl p-6"
+              className="group glass rounded-2xl p-4 sm:p-6"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-xl",
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                       styles.iconBg,
                     )}
                   >
                     <Target className={cn("h-5 w-5", styles.iconText)} />
                   </div>
-                  <span className="font-bold text-white">
+                  <span className="truncate font-bold text-white">
                     {categoryLabels[goal.category]}
                   </span>
                 </div>

@@ -206,9 +206,9 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
                     type="button"
                     onClick={() => setSource(opt.id)}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-2 rounded-2xl border p-4 transition-all duration-300",
+                      "flex flex-col items-center justify-center gap-2 rounded-2xl border p-3 transition-all duration-300 sm:p-4",
                       isSelected
-                        ? "scale-105 border-emerald-500 bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20"
+                        ? "border-emerald-500 bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20 sm:scale-105"
                         : "border-white/5 bg-white/5 text-zinc-500 hover:bg-white/10",
                     )}
                   >
@@ -224,11 +224,11 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-white/5 pt-10">
+      <div className="flex flex-col-reverse gap-4 border-t border-white/5 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pt-10">
         <button
           type="button"
           onClick={onCancel ?? (() => navigate(-1))}
-          className="text-sm font-bold text-zinc-500 transition-colors hover:text-white"
+          className="w-full py-2 text-center text-sm font-bold text-zinc-500 transition-colors hover:text-white sm:w-auto sm:py-0 sm:text-left"
         >
           Cancelar
         </button>
@@ -236,7 +236,7 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
         <button
           type="submit"
           disabled={loading}
-          className="group relative flex h-16 items-center gap-4 rounded-3xl bg-white px-10 text-lg font-black text-zinc-950 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50"
+          className="group relative flex h-14 w-full items-center justify-center gap-3 rounded-3xl bg-white px-6 text-base font-black text-zinc-950 transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50 sm:h-16 sm:w-auto sm:gap-4 sm:px-10 sm:text-lg"
         >
           {loading ? (
             <span className="flex items-center gap-2">

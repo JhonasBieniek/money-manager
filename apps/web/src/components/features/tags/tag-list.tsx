@@ -119,12 +119,12 @@ export function TagList() {
         const subs = subTagsByParent[tag.id] ?? [];
         const isOpen = expanded[tag.id] ?? subs.length > 0;
         return (
-          <div key={tag.id} className="glass overflow-hidden rounded-[2rem]">
-            <div className="flex items-center justify-between p-6">
+          <div key={tag.id} className="glass overflow-hidden rounded-2xl sm:rounded-[2rem]">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <button
                 type="button"
                 onClick={() => toggleExpand(tag.id)}
-                className="flex flex-1 items-center gap-3 text-left"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 {subs.length > 0 ? (
                   isOpen ? (
@@ -145,7 +145,7 @@ export function TagList() {
                   </p>
                 </div>
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                 <Link
                   to={`/dashboard/tags/${tag.id}/sub/new`}
                   className="rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-zinc-400 hover:text-white"
@@ -169,7 +169,7 @@ export function TagList() {
             </div>
 
             {isOpen && subs.length > 0 ? (
-              <div className="space-y-2 border-t border-white/5 px-6 pb-6">
+              <div className="space-y-2 border-t border-white/5 px-4 pb-4 sm:px-6 sm:pb-6">
                 {subs.map((sub) => (
                   <div
                     key={sub.id}

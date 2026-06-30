@@ -3,7 +3,7 @@ import { GoalsForm } from "../components/features/goals/goals-form";
 
 export function GoalsPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-6 sm:space-y-8">
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
@@ -13,7 +13,7 @@ export function GoalsPage() {
             Planejamento
           </span>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Metas de Gastos
         </h1>
         <p className="max-w-[50ch] text-zinc-400">
@@ -21,7 +21,7 @@ export function GoalsPage() {
         </p>
       </div>
 
-      <div className="glass rounded-[2.5rem] p-8">
+      <div className="glass rounded-2xl p-4 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
         <GoalsForm />
       </div>
     </div>

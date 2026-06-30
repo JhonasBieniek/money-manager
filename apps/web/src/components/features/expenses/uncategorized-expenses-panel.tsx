@@ -8,6 +8,7 @@ import {
 } from "@money-manager/types";
 import { formatOccurredAtPtBr } from "@money-manager/utils/date";
 import { apiFetch } from "../../../lib/api";
+import { cn } from "../../../lib/cn";
 import {
   SearchableMultiSelect,
   SearchableSelect,
@@ -173,7 +174,23 @@ export function UncategorizedExpensesPanel() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(100vw-2rem,24rem)] rounded-2xl border border-white/10 bg-zinc-900 p-4 shadow-2xl">
+        <>
+          <button
+            type="button"
+            aria-label="Fechar painel"
+            className="fixed inset-0 z-[55] bg-zinc-950/70 backdrop-blur-sm lg:hidden"
+            onClick={closePanel}
+          />
+          <div
+            className={cn(
+              "z-[60] border border-white/10 bg-zinc-900 shadow-2xl",
+              "fixed inset-x-0 bottom-0 max-h-[min(85dvh,32rem)] overflow-y-auto overscroll-contain rounded-t-3xl p-4",
+              "lg:absolute lg:inset-auto lg:right-0 lg:top-12 lg:max-h-80 lg:w-[min(100vw-2rem,24rem)] lg:rounded-2xl",
+            )}
+            style={{
+              paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+            }}
+          >
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-white">
@@ -274,7 +291,8 @@ export function UncategorizedExpensesPanel() {
               ))}
             </ul>
           )}
-        </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

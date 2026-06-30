@@ -121,7 +121,7 @@ export function SearchableSelect({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-white/10 bg-zinc-900 py-1 shadow-xl"
+          className="absolute z-50 mt-1 max-h-[min(12rem,40dvh)] w-full overflow-auto rounded-xl border border-white/10 bg-zinc-900 py-1 shadow-xl"
         >
           {filtered.length === 0 ? (
             <li className="px-4 py-2.5 text-sm text-zinc-500">{emptyMessage}</li>
@@ -242,7 +242,7 @@ export function SearchableMultiSelect({
         <ul
           id={listId}
           role="listbox"
-          className="max-h-40 overflow-auto rounded-xl border border-white/10 bg-zinc-900 py-1 shadow-xl"
+          className="max-h-[min(10rem,35dvh)] overflow-auto rounded-xl border border-white/10 bg-zinc-900 py-1 shadow-xl"
         >
           {options.length === 0 ? (
             <li className="px-4 py-2.5 text-sm text-zinc-500">

@@ -13,8 +13,8 @@ export function SettingsPage() {
   }, []);
 
   return (
-    <div className="max-w-lg">
-      <h1 className="mb-2 text-2xl font-bold text-white">Configurações</h1>
+    <div className="max-w-lg space-y-6 sm:space-y-8">
+      <h1 className="text-xl font-bold text-white sm:text-2xl">Configurações</h1>
       <p className="mb-8 text-sm text-zinc-400">
         Gerencie sua sessão e preferências da conta.
       </p>
