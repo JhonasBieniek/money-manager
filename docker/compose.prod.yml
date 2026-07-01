@@ -1,0 +1,127 @@
+# Produção — VPS multi-projeto (ARM64)
+# Infra externa: /opt/postgres (rede portfolio) + /opt/caddy (80/443)
+# CD: imagens em ghcr.io/<owner>/money-manager-*:<sha> — VPS só faz pull
+name: money-manager
+
+networks:
+  internal:
+    driver: bridge
+  portfolio:
+    external: true
+    name: portfolio
+
+services:
+  api:
+    image: ${MM_IMAGE_PREFIX:-mm}-api:${MM_IMAGE_TAG:-dev}
+    container_name: mm-api
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+    networks:
+      - internal
+      - portfolio
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  web:
+    image: ${MM_IMAGE_PREFIX:-mm}-web:${MM_IMAGE_TAG:-dev}
+    container_name: mm-web
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - internal
+      - portfolio
+
+  stt:
+    image: ${MM_IMAGE_PREFIX:-mm}-stt:${MM_IMAGE_TAG:-dev}
+    container_name: mm-stt
+    build:
+      context: ../apps/stt
+      dockerfile: Dockerfile
+      args:
+        STT_MODEL: ${STT_MODEL:-small}
+    restart: unless-stopped
+    environment:
+      STT_MODEL: ${STT_MODEL:-small}
+      STT_MODEL_DIR: /app/models
+      STT_LANGUAGE: ${STT_LANGUAGE:-pt}
+      STT_NOISE_REDUCTION: ${STT_NOISE_REDUCTION:-false}
+      HF_HUB_OFFLINE: "1"
+    networks:
+      - internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  bot:
+    image: ${MM_IMAGE_PREFIX:-mm}-bot:${MM_IMAGE_TAG:-dev}
+    container_name: mm-bot
+    build:
+      context: ..
+      dockerfile: apps/bot/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      TELEGRAM_USE_POLLING: "false"
+      BOT_PORT: 3002
+      API_INTERNAL_URL: http://api:3001
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      WHISPER_PROVIDER: local
+      STT_SERVICE_URL: http://stt:8001
+    depends_on:
+      api:
+        condition: service_healthy
+      stt:
+        condition: service_healthy
+    networks:
+      - internal
+      - portfolio
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3002',(r)=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

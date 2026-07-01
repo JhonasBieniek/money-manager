@@ -5,6 +5,7 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+.env.prod
 .env.*.local
 *.log
 npm-debug.log*
