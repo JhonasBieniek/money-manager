@@ -35,6 +35,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-min-32-characters-long-change-me}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -23,6 +23,10 @@ export async function getAccount(req: Request, res: Response): Promise<void> {
   res.status(200).json(account);
 }
 
+export async function getBotInfo(_req: Request, res: Response): Promise<void> {
+  res.status(200).json(telegramService.getBotInfo());
+}
+
 export async function internalLink(req: Request, res: Response): Promise<void> {
   const body = internalLinkBodySchema.parse(req.body);
   await telegramService.linkAccount(body);

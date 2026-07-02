@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AuthGuard } from "../components/AuthGuard";
+import { OnboardingProvider } from "../contexts/onboarding-context";
 import { UncategorizedExpensesPanel } from "../components/features/expenses/uncategorized-expenses-panel";
 import {
   TransactionModalsProvider,
@@ -210,7 +211,7 @@ function DashboardShell() {
       ) : null}
 
       <main className="flex min-w-0 flex-1 flex-col lg:pl-64">
-        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-zinc-950/90 px-4 backdrop-blur-xl sm:h-16 sm:px-6 lg:px-8">
+        <header className="fixed top-0 left-0 right-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-zinc-950/90 px-4 backdrop-blur-xl sm:h-16 sm:px-6 lg:left-64 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
@@ -244,6 +245,11 @@ function DashboardShell() {
             ) : null}
           </div>
         </header>
+
+        <div
+          className="h-14 shrink-0 sm:h-16"
+          aria-hidden
+        />
 
         <div className="min-w-0 flex-1 p-3 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:p-4 lg:p-6 lg:pb-6">
           <div className="min-h-[calc(100dvh-8.5rem)] rounded-2xl border border-white/5 bg-zinc-900/30 p-4 sm:min-h-[calc(100vh-5rem)] sm:rounded-3xl sm:p-6 lg:p-8">
@@ -300,9 +306,11 @@ function DashboardShell() {
 export function DashboardLayout() {
   return (
     <AuthGuard>
-      <TransactionModalsProvider>
-        <DashboardShell />
-      </TransactionModalsProvider>
+      <OnboardingProvider>
+        <TransactionModalsProvider>
+          <DashboardShell />
+        </TransactionModalsProvider>
+      </OnboardingProvider>
     </AuthGuard>
   );
 }

@@ -61,11 +61,16 @@ describe("createLinkToken", () => {
   });
 
   it("gera token com expiração em 15 minutos e comando /start", async () => {
+    process.env.TELEGRAM_BOT_USERNAME = "MoneyManagerBot";
     const before = Date.now();
     const result = await telegramService.createLinkToken("user-1");
 
     expect(result.token).toBe("secure-link-token-abc123");
     expect(result.startCommand).toBe("/start secure-link-token-abc123");
+    expect(result.botUsername).toBe("MoneyManagerBot");
+    expect(result.botDeepLink).toBe(
+      "https://t.me/MoneyManagerBot?start=secure-link-token-abc123",
+    );
     const expiresMs = new Date(result.expiresAt).getTime() - before;
     expect(expiresMs).toBeGreaterThanOrEqual(14 * 60 * 1000);
     expect(expiresMs).toBeLessThanOrEqual(16 * 60 * 1000);

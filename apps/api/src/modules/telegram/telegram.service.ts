@@ -18,6 +18,33 @@ import {
 
 const LINK_TOKEN_TTL_MS = 15 * 60 * 1000;
 
+function getBotUsername(): string | null {
+  const raw = process.env.TELEGRAM_BOT_USERNAME?.trim();
+  if (!raw) {
+    return null;
+  }
+  return raw.replace(/^@/, "");
+}
+
+function buildBotDeepLink(token: string): string | null {
+  const username = getBotUsername();
+  if (!username) {
+    return null;
+  }
+  return `https://t.me/${username}?start=${encodeURIComponent(token)}`;
+}
+
+export function getBotInfo(): {
+  botUsername: string | null;
+  botUrl: string | null;
+} {
+  const botUsername = getBotUsername();
+  return {
+    botUsername,
+    botUrl: botUsername ? `https://t.me/${botUsername}` : null,
+  };
+}
+
 function parseChatId(chatId: string): bigint {
   try {
     return BigInt(chatId);
@@ -51,6 +78,8 @@ export async function createLinkToken(
     token,
     expiresAt: expiresAt.toISOString(),
     startCommand: `/start ${token}`,
+    botUsername: getBotUsername(),
+    botDeepLink: buildBotDeepLink(token),
   };
 }
 

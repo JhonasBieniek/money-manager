@@ -28,6 +28,7 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     networks:
       - internal
       - portfolio

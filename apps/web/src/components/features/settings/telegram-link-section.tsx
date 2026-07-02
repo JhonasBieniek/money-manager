@@ -1,10 +1,11 @@
 import type {
   LinkTokenResponse,
   TelegramAccountResponse,
+  TelegramBotInfoResponse,
 } from "@money-manager/types";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../../lib/api";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, MessageCircle } from "lucide-react";
 
 function formatExpiry(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -27,17 +28,26 @@ export function TelegramLinkSection() {
   const [linkedAccount, setLinkedAccount] =
     useState<TelegramAccountResponse | null>(null);
   const [linkData, setLinkData] = useState<LinkTokenResponse | null>(null);
+  const [botInfo, setBotInfo] = useState<TelegramBotInfoResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    async function loadAccountStatus() {
+    async function loadInitialData() {
       setCheckingStatus(true);
       try {
-        const res = await apiFetch("/v1/telegram/account");
-        if (res.ok) {
-          setLinkedAccount((await res.json()) as TelegramAccountResponse);
+        const [accountRes, infoRes] = await Promise.all([
+          apiFetch("/v1/telegram/account"),
+          apiFetch("/v1/telegram/info"),
+        ]);
+
+        if (accountRes.ok) {
+          setLinkedAccount((await accountRes.json()) as TelegramAccountResponse);
         } else {
           setLinkedAccount(null);
+        }
+
+        if (infoRes.ok) {
+          setBotInfo((await infoRes.json()) as TelegramBotInfoResponse);
         }
       } catch {
         setLinkedAccount(null);
@@ -46,7 +56,7 @@ export function TelegramLinkSection() {
       }
     }
 
-    void loadAccountStatus();
+    void loadInitialData();
   }, []);
 
   useEffect(() => {
@@ -108,6 +118,12 @@ export function TelegramLinkSection() {
     }
   }
 
+  const botLabel = linkData?.botUsername
+    ? `@${linkData.botUsername}`
+    : botInfo?.botUsername
+      ? `@${botInfo.botUsername}`
+      : "nosso bot";
+
   if (checkingStatus) {
     return (
       <div className="glass mt-6 rounded-2xl p-6">
@@ -141,12 +157,20 @@ export function TelegramLinkSection() {
 
   return (
     <div className="glass mt-6 rounded-2xl p-6">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-zinc-500">
-        Telegram
-      </h2>
-      <p className="mb-4 text-sm text-zinc-400">
-        Vincule sua conta ao bot do Telegram para registrar despesas por áudio.
-      </p>
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+          <MessageCircle className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+            Telegram
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+            Vincule sua conta ao {botLabel} para registrar despesas por áudio
+            direto no chat.
+          </p>
+        </div>
+      </div>
 
       {error ? (
         <p className="mb-4 text-sm text-red-400" role="alert">
@@ -154,35 +178,98 @@ export function TelegramLinkSection() {
         </p>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => void handleGenerate()}
-        disabled={loading}
-        className="btn-primary"
-      >
-        {loading ? "Gerando…" : "Gerar código de vínculo"}
-      </button>
-
-      {linkData ? (
-        <div className="mt-6 space-y-3 rounded-xl border border-white/5 bg-zinc-900/40 p-4">
+      {!linkData ? (
+        <button
+          type="button"
+          onClick={() => void handleGenerate()}
+          disabled={loading}
+          className="btn-primary"
+        >
+          {loading ? "Gerando código…" : "Gerar código de vínculo"}
+        </button>
+      ) : (
+        <div className="space-y-4 rounded-2xl border border-white/5 bg-zinc-900/40 p-4 sm:p-5">
           <p className="text-xs uppercase tracking-widest text-zinc-500">
             Código válido até {formatExpiry(linkData.expiresAt)}
           </p>
-          <p className="font-mono text-sm text-emerald-300">{linkData.token}</p>
-          <p className="text-sm text-zinc-300">No Telegram, envie ao bot:</p>
-          <p className="font-mono text-sm text-white">{linkData.startCommand}</p>
+
+          <ol className="space-y-3 text-sm text-zinc-300">
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-400">
+                1
+              </span>
+              <span>
+                Abra o Telegram e inicie uma conversa com{" "}
+                <strong className="text-white">{botLabel}</strong>.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-400">
+                2
+              </span>
+              <span>
+                Envie o comando abaixo (ou use o botão para abrir o chat já com
+                o código).
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-400">
+                3
+              </span>
+              <span>
+                Volte aqui — esta tela atualiza sozinha quando o vínculo for
+                concluído.
+              </span>
+            </li>
+          </ol>
+
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-emerald-400/80">
+              Comando para copiar
+            </p>
+            <p className="break-all font-mono text-sm text-white">
+              {linkData.startCommand}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void handleCopy()}
+              className="btn-ghost inline-flex items-center justify-center gap-2 text-sm"
+            >
+              <Copy className="h-4 w-4" />
+              {copied ? "Comando copiado!" : "Copiar comando"}
+            </button>
+
+            {linkData.botDeepLink ? (
+              <a
+                href={linkData.botDeepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary inline-flex items-center justify-center gap-2 text-sm"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Abrir no Telegram
+              </a>
+            ) : botInfo?.botUrl ? (
+              <a
+                href={botInfo.botUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary inline-flex items-center justify-center gap-2 text-sm"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Abrir {botLabel}
+              </a>
+            ) : null}
+          </div>
+
           <p className="text-xs text-amber-400/90">
-            Aguardando vínculo no Telegram… o card atualiza automaticamente.
+            Aguardando vínculo no Telegram…
           </p>
-          <button
-            type="button"
-            onClick={() => void handleCopy()}
-            className="btn-ghost text-sm"
-          >
-            {copied ? "Copiado!" : "Copiar comando"}
-          </button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

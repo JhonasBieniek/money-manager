@@ -1,8 +1,31 @@
 import { motion } from "framer-motion";
+import { OnboardingDashboardPreview } from "../components/features/onboarding/onboarding-dashboard-preview";
+import { OnboardingHistoryPreview } from "../components/features/onboarding/onboarding-history-preview";
+import { OnboardingOverlay } from "../components/features/onboarding/onboarding-overlay";
 import { DashboardHistory } from "../components/features/dashboard/dashboard-history";
 import { DashboardSummary } from "../components/features/dashboard/dashboard-summary";
+import { useOnboarding } from "../contexts/onboarding-context";
 
 export function DashboardPage() {
+  const { showOnboarding, dismissOnboarding } = useOnboarding();
+
+  if (showOnboarding) {
+    return (
+      <>
+        <div className="mx-auto max-w-7xl space-y-8 sm:space-y-12 pb-24 lg:pb-12">
+          <OnboardingDashboardPreview />
+          <section>
+            <h2 className="mb-4 text-xl font-bold text-white/90 sm:mb-6 sm:text-2xl">
+              Histórico Financeiro
+            </h2>
+            <OnboardingHistoryPreview />
+          </section>
+        </div>
+        <OnboardingOverlay onDismiss={dismissOnboarding} />
+      </>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 sm:space-y-12">
       <motion.div
