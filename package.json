@@ -11,9 +11,11 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@eslint/js": "^9.21.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.10",

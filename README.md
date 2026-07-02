@@ -46,7 +46,8 @@ Portfolio-grade **personal finance platform** with multi-user auth, goal-based b
 | Bot | Grammy (TypeScript), long-polling in dev / webhook in production |
 | STT | Python 3.12, FastAPI, faster-whisper (`apps/stt`) |
 | Testing | Jest + ts-jest (~138 tests), supertest integration against real Postgres in CI |
-| CI / security | GitHub Actions (lint, build, test, migrate), CodeQL |
+| E2E | Playwright (Chromium) — register, login, expense CRUD, dashboard |
+| CI / security | GitHub Actions (lint, build, test, migrate, E2E), CodeQL |
 
 ## Technical highlights
 
@@ -98,6 +99,7 @@ money-manager-v3/
 │   ├── db/                  # Drizzle schema + migrations
 │   ├── types/               # Shared TypeScript contracts
 │   └── utils/               # newId, dates, password helpers
+├── e2e/                     # Playwright E2E (auth, expenses)
 ├── docker-compose.yml       # postgres, api, web, bot, stt
 ├── .github/workflows/       # CI + CodeQL
 ├── turbo.json
@@ -165,11 +167,12 @@ All business routes except auth entrypoints require `Authorization: Bearer <acce
 pnpm lint
 pnpm build
 pnpm test          # Jest across api, bot, db, utils (~138 tests)
+pnpm test:e2e      # Playwright — API + web started automatically (needs Postgres)
 ```
 
-CI runs on every push/PR: install → lint → build → migrate → test against PostgreSQL 16. CodeQL scans TypeScript weekly and on push.
+**E2E locally:** start Postgres (`docker compose up -d postgres`), then `pnpm exec playwright install chromium` once and `pnpm test:e2e`. See [e2e/README.md](./e2e/README.md).
 
-**Planned:** Playwright E2E (register → login → create expense → dashboard).
+CI runs on every push/PR: install → lint → build → migrate → Jest against PostgreSQL 16, then a dedicated **e2e** job (Playwright with API + Vite + Postgres). Failed E2E runs upload HTML report and traces. CodeQL scans TypeScript weekly and on push.
 
 ## License
 

@@ -46,6 +46,7 @@ Plataforma de **finanças pessoais** em nível portfólio: autenticação multi-
 | Bot | Grammy — polling no dev, webhook em produção |
 | STT | Python 3.12, FastAPI, faster-whisper |
 | Testes | Jest + ts-jest (~138 testes), integração com Postgres real no CI |
+| E2E | Playwright (Chromium) — cadastro, login, despesa, dashboard |
 | CI / segurança | GitHub Actions, CodeQL |
 
 ## Destaques técnicos
@@ -141,11 +142,12 @@ Rotas internas exigem `x-internal-api-key`. Demais rotas de negócio exigem `Aut
 
 ```bash
 pnpm lint && pnpm build && pnpm test
+pnpm test:e2e      # Playwright — API + web sobem automaticamente (precisa de Postgres)
 ```
 
-CI: lint, build, migrate e testes com PostgreSQL 16. CodeQL no TypeScript.
+**E2E local:** suba o Postgres (`docker compose up -d postgres`), instale o Chromium uma vez (`pnpm exec playwright install chromium`) e rode `pnpm test:e2e`. Detalhes em [e2e/README.md](./e2e/README.md).
 
-**Planejado:** E2E com Playwright.
+CI: lint, build, migrate, Jest com PostgreSQL 16 e job **e2e** (Playwright com API + Vite + Postgres). Falhas no E2E geram relatório HTML e traces. CodeQL no TypeScript.
 
 ## Licença
 
