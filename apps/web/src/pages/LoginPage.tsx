@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AuthPageShell } from "../components/marketing/auth-page-shell";
 import { apiFetch, setStoredAccessToken } from "../lib/api";
 
 export function LoginPage() {
@@ -38,54 +39,50 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-zinc-950 p-4 sm:p-6">
-      <div className="glass w-full max-w-md rounded-2xl p-6 sm:p-8">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-          Money Manager
-        </p>
-        <h1 className="mb-2 text-2xl font-bold text-white">Entrar</h1>
-        <p className="mb-6 text-sm text-zinc-400">
-          Use seu e-mail e senha para acessar o painel.
-        </p>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-zinc-300">E-mail</span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="auth-input"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium text-zinc-300">Senha</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="auth-input"
-            />
-          </label>
-          {error ? (
-            <p className="text-sm text-red-400" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? "Entrando…" : "Entrar"}
-          </button>
-        </form>
-        <p className="mt-6 text-center text-sm text-zinc-500">
+    <AuthPageShell
+      title="Entrar"
+      subtitle="Use seu e-mail e senha para acessar o painel."
+      footer={
+        <>
           Não tem conta?{" "}
           <Link className="text-emerald-400 hover:underline" to="/register">
             Cadastrar
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-zinc-300">E-mail</span>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="auth-input"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-zinc-300">Senha</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="auth-input"
+          />
+        </label>
+        {error ? (
+          <p className="text-sm text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" disabled={loading} className="btn-primary w-full">
+          {loading ? "Entrando…" : "Entrar"}
+        </button>
+      </form>
+    </AuthPageShell>
   );
 }

@@ -82,11 +82,16 @@ body {
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: #34d399;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.25);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-primary:disabled {
@@ -107,9 +112,14 @@ body {
   font-size: 0.875rem;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.2s;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
 
 .btn-ghost:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
 }
