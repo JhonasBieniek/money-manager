@@ -95,15 +95,7 @@ export async function expectExpenseOnDashboard(
   await summaryResponse;
   await expect(page.getByRole("heading", { name: "Bem-vindo de volta!" })).toBeVisible();
 
-  const expensesCard = page
-    .getByTestId("dashboard-total-expenses")
-    .or(
-      page
-        .locator("div")
-        .filter({ has: page.getByText("Despesas", { exact: true }) })
-        .filter({ has: page.locator("h3") })
-        .first(),
-    );
-
-  await expect(expensesCard).toContainText(formattedAmount);
+  await expect(page.getByTestId("dashboard-total-expenses")).toContainText(
+    formattedAmount,
+  );
 }
