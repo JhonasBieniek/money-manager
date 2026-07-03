@@ -46,6 +46,7 @@ export function createApp() {
       max: 200,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: () => process.env.NODE_ENV === "test",
     }),
   );
   app.use(express.json({ limit: "1mb" }));

@@ -1,59 +1,49 @@
 # E2E tests (Playwright)
 
-Browser tests for critical user flows: **register → login → create expense → dashboard**.
+Critical **browser** journeys — things HTTP integration cannot reach (CSRF, cookies, sessionStorage, cross-page navigation, dashboard aggregation).
+
+## Test pyramid
+
+| Layer | Responsibility |
+|-------|----------------|
+| **E2E** | Few multi-page flows with real product value |
+| **Integration** | Business rules, Postgres, HTTP contracts |
+| **Unit** | Schemas, services, `billing-cycle` |
+
+**Rule:** if the API already enforces a rule and the browser only repeats form validation, it does **not** belong in E2E.
 
 ## Prerequisites
-
-- Node.js 22+ and pnpm 10+
-- PostgreSQL reachable at `DATABASE_URL` (default in CI: `localhost:5432`)
-
-For local runs, start Postgres first (Docker Compose exposes port **15432**). The E2E runner loads `.env` from the repo root automatically; if `DATABASE_URL` is absent there, it defaults to port `15432`.
 
 ```bash
 docker compose up -d postgres
 pnpm test:e2e
 ```
 
+Loads `.env` from the repo root; local Postgres defaults to port **15432**.
+
+## Specs (8 tests)
+
+| Spec | What it protects |
+|------|------------------|
+| `auth.spec.ts` (4) | Register/login, HttpOnly cookie, invalid credentials, **protected route → login** |
+| `expenses.spec.ts` (1) | Expense → list → total on dashboard |
+| `incomes.spec.ts` (1) | Income → list → total on dashboard |
+| `dashboard.spec.ts` (1) | **Balance = incomes − expenses** in the same month (UI aggregation) |
+| `credit-cards.spec.ts` (1) | Card → credit expense → **list + statement** (cross-module integration) |
+
+### Out of E2E scope (Jest)
+
+Form validations (category, zero amount), goals at 100%, tags CRUD, statement close/reopen, billing-cycle, Telegram.
+
 ## Run
 
-From the repository root:
-
 ```bash
-pnpm install
 pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Playwright starts the API (`:3001`) and Vite dev server (`:5173`) automatically unless `E2E_SKIP_WEBSERVER=true`. Set `E2E_REUSE_SERVERS=1` only if you already have test-configured servers running.
-
-To reuse already-running services:
-
-```bash
-export DATABASE_URL=postgresql://money_manager:changeme@localhost:15432/money_manager
-export E2E_SKIP_WEBSERVER=true
-pnpm test:e2e
-```
-
-## Structure
-
-| Path | Purpose |
-|------|---------|
-| `auth.spec.ts` | Register, login, logout, sessionStorage + refresh cookie |
-| `expenses.spec.ts` | Create expense modal flow, list + dashboard totals |
-| `helpers/` | `registerUser`, `loginUser`, `createExpense`, unique test emails |
-| `fixtures.ts` | Shared `authenticatedPage` fixture |
-
-Each run uses a unique e-mail (`e2e-<timestamp>@example.com`) to avoid collisions.
+`E2E_REUSE_SERVERS=1` — reuse an already-running API/Vite dev server.
 
 ## CI
 
-The `e2e` job in `.github/workflows/ci.yml` runs on every PR after the main `ci` job: Postgres service → migrate → Playwright (Chromium) → upload HTML report and traces on failure.
-
-## Debugging
-
-```bash
-pnpm exec playwright test --config e2e/playwright.config.ts --ui
-pnpm exec playwright show-report e2e/playwright-report
-```
-
-On failure, traces are captured on the first retry (`trace: on-first-retry`) and screenshots are saved under `e2e/test-results/`.
+The `e2e` job in `.github/workflows/ci.yml` runs after `ci`: Postgres → migrate → Playwright → trace/screenshot on failure.

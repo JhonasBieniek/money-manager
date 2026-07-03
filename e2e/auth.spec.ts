@@ -53,4 +53,13 @@ test.describe("autenticação", () => {
     );
     expect(token).toBeNull();
   });
+
+  test("redireciona visitante de rota protegida para login", async ({
+    page,
+  }) => {
+    await skipOnboarding(page);
+    await page.goto("/dashboard/expenses");
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();
+  });
 });

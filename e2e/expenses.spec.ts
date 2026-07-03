@@ -1,11 +1,8 @@
-import { test, expect } from "./fixtures";
+import { test } from "./fixtures";
 import {
   createExpense,
   expectExpenseInList,
   expectExpenseOnDashboard,
-  expectExpenseSaveBlocked,
-  fillExpenseForm,
-  openNewExpenseModal,
 } from "./helpers/expenses";
 
 test.describe("despesas", () => {
@@ -19,18 +16,5 @@ test.describe("despesas", () => {
     await createExpense(page, { amount, description });
     await expectExpenseInList(page, description);
     await expectExpenseOnDashboard(page, formattedAmount);
-  });
-
-  test("mantém modal aberto quando categoria de meta está ausente", async ({
-    authenticatedPage: page,
-  }) => {
-    await openNewExpenseModal(page);
-    await fillExpenseForm(page, {
-      amount: "10,00",
-      description: "Sem categoria",
-      categoryLabel: null,
-    });
-    await expectExpenseSaveBlocked(page);
-    await expect(page.getByRole("heading", { name: "Nova despesa" })).toBeVisible();
   });
 });

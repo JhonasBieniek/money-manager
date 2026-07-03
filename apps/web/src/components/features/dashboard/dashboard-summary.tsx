@@ -203,6 +203,7 @@ export function DashboardSummary() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0, duration: 0.5 }}
           className="glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6"
+          data-testid="dashboard-total-incomes"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">
@@ -249,6 +250,7 @@ export function DashboardSummary() {
             "glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6",
             balanceIsPositive ? "border-emerald-500/20" : "border-red-500/20",
           )}
+          data-testid="dashboard-balance"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">
