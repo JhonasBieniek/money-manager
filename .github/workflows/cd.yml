@@ -54,7 +54,7 @@ jobs:
       shared: ${{ steps.filter.outputs.shared }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.deploy_sha }}
           fetch-depth: 0
@@ -63,7 +63,7 @@ jobs:
       - name: Download push range from CI
         if: github.event_name == 'workflow_run'
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: deploy-range-${{ needs.meta.outputs.deploy_sha }}
           run-id: ${{ github.event.workflow_run.id }}
@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           base: ${{ steps.diff.outputs.base }}
@@ -249,7 +249,7 @@ jobs:
               ;;
           esac
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.deploy_sha }}
 
@@ -288,7 +288,7 @@ jobs:
           esac
 
       - name: Build and push ${{ matrix.service }} image (linux/arm64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ steps.config.outputs.context }}
           file: ${{ steps.config.outputs.file }}
