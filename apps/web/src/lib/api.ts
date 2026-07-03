@@ -3,8 +3,12 @@ import type { UserProfile } from "@money-manager/types";
 const base = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 const CSRF_COOKIE_NAME = "_csrf";
 const CSRF_HEADER_NAME = "x-xsrf-token";
+const AUTH_WRITE_PATHS = ["/auth/login", "/auth/register", "/auth/refresh"] as const;
+const AUTH_5XX_MAX_RETRIES = 2;
 
 export const ACCESS_TOKEN_STORAGE_KEY = "mm_access_token";
+
+let csrfBootstrap: Promise<void> | null = null;
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") {
@@ -16,14 +20,34 @@ function getCookie(name: string): string | null {
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
+function isAuthWritePath(path: string): boolean {
+  return AUTH_WRITE_PATHS.some((segment) => path.includes(segment));
+}
+
+async function fetchCsrfCookie(): Promise<void> {
+  const res = await fetch(`${base.replace(/\/$/, "")}/v1/auth/csrf`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Falha ao obter token CSRF (${res.status})`);
+  }
+  if (!getCookie(CSRF_COOKIE_NAME)) {
+    throw new Error("Cookie CSRF ausente após bootstrap");
+  }
+}
+
 async function ensureCsrfCookie(): Promise<void> {
   if (typeof window === "undefined" || getCookie(CSRF_COOKIE_NAME)) {
     return;
   }
 
-  await fetch(`${base.replace(/\/$/, "")}/v1/auth/csrf`, {
-    credentials: "include",
-  });
+  if (!csrfBootstrap) {
+    csrfBootstrap = fetchCsrfCookie().finally(() => {
+      csrfBootstrap = null;
+    });
+  }
+
+  await csrfBootstrap;
 }
 
 function withCsrfHeaders(headers: Record<string, string>, method: string): void {
@@ -36,6 +60,10 @@ function withCsrfHeaders(headers: Record<string, string>, method: string): void 
   if (csrf) {
     headers[CSRF_HEADER_NAME] = csrf;
   }
+}
+
+function authRetryDelayMs(attempt: number): number {
+  return 250 * 2 ** attempt;
 }
 
 export function getStoredAccessToken(): string | null {
@@ -51,6 +79,18 @@ export function setStoredAccessToken(token: string): void {
 
 export function clearStoredAccessToken(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+}
+
+async function performFetch(
+  url: string,
+  init: RequestInit | undefined,
+  headers: Record<string, string>,
+): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
 }
 
 export async function apiFetch(
@@ -74,11 +114,27 @@ export async function apiFetch(
   }
   withCsrfHeaders(headers, method);
 
-  let response = await fetch(url, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+  const maxAttempts = isAuthWritePath(path) ? AUTH_5XX_MAX_RETRIES + 1 : 1;
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, authRetryDelayMs(attempt - 1)),
+      );
+      await ensureCsrfCookie();
+      withCsrfHeaders(headers, method);
+    }
+
+    response = await performFetch(url, init, headers);
+    if (response.status < 500 || response.status >= 600) {
+      break;
+    }
+  }
+
+  if (!response) {
+    throw new Error("Falha ao executar requisição");
+  }
 
   if (
     response.status === 401 &&
@@ -106,11 +162,7 @@ export async function apiFetch(
       if (data.accessToken) {
         setStoredAccessToken(data.accessToken);
         headers.authorization = `Bearer ${data.accessToken}`;
-        response = await fetch(url, {
-          ...init,
-          headers,
-          credentials: "include",
-        });
+        response = await performFetch(url, init, headers);
       }
     } else {
       clearStoredAccessToken();

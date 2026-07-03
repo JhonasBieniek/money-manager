@@ -13,6 +13,10 @@
     "./date": {
       "types": "./dist/date.d.ts",
       "import": "./dist/date.js"
+    },
+    "./billing-cycle": {
+      "types": "./dist/billing-cycle.d.ts",
+      "import": "./dist/billing-cycle.js"
     }
   },
   "scripts": {

@@ -46,6 +46,27 @@ export async function checkDbConnection(): Promise<boolean> {
   }
 }
 
+export async function waitForDbConnection(options?: {
+  maxAttempts?: number;
+  delayMs?: number;
+}): Promise<void> {
+  const maxAttempts = options?.maxAttempts ?? 30;
+  const delayMs = options?.delayMs ?? 1000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (await checkDbConnection()) {
+      return;
+    }
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error(
+    `Database connection failed after ${maxAttempts} attempts`,
+  );
+}
+
 export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();

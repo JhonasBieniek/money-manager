@@ -1,4 +1,4 @@
 export type HealthResponse = {
-  status: "ok";
+  status: "ok" | "degraded";
   db?: "ok" | "unavailable";
 };

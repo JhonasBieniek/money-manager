@@ -14,3 +14,9 @@ export const expenseSourceEnum = pgEnum("expense_source", [
   "telegram_whisper",
   "telegram_manual",
 ]);
+
+export const statementStatusEnum = pgEnum("statement_status", [
+  "open",
+  "closed",
+  "paid",
+]);

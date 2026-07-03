@@ -1,9 +1,9 @@
 import { expect, type Page } from "@playwright/test";
 
-export type CreateExpenseOptions = {
+export type FillExpenseOptions = {
   amount: string;
   description: string;
-  categoryLabel?: string;
+  categoryLabel?: string | null;
 };
 
 export async function openNewExpenseModal(page: Page) {
@@ -18,10 +18,14 @@ export async function openNewExpenseModal(page: Page) {
 
 export async function fillExpenseForm(
   page: Page,
-  { amount, description, categoryLabel = "Prazeres" }: CreateExpenseOptions,
+  { amount, description, categoryLabel = "Prazeres" }: FillExpenseOptions,
 ) {
   await page.getByPlaceholder("0,00").fill(amount);
   await page.getByPlaceholder("Ex: Almoço Executivo").fill(description);
+
+  if (categoryLabel === null) {
+    return;
+  }
 
   const categoryCombobox = page
     .getByRole("dialog")
@@ -33,6 +37,23 @@ export async function fillExpenseForm(
     .getByRole("listbox")
     .getByRole("button", { name: categoryLabel, exact: true })
     .click();
+}
+
+/** Tenta salvar sem enviar POST — validação client-side bloqueia o envio. */
+export async function expectExpenseSaveBlocked(page: Page) {
+  const createResponse = page
+    .waitForResponse(
+      (response) =>
+        response.url().includes("/v1/expenses") &&
+        response.request().method() === "POST",
+      { timeout: 2_000 },
+    )
+    .catch(() => null);
+
+  await page.getByRole("button", { name: "Salvar Despesa" }).click();
+
+  expect(await createResponse).toBeNull();
+  await expect(page.getByRole("dialog")).toBeVisible();
 }
 
 export async function submitExpenseForm(page: Page) {
@@ -48,7 +69,7 @@ export async function submitExpenseForm(page: Page) {
   await expect(page.getByRole("dialog")).toBeHidden();
 }
 
-export async function createExpense(page: Page, options: CreateExpenseOptions) {
+export async function createExpense(page: Page, options: FillExpenseOptions) {
   await openNewExpenseModal(page);
   await fillExpenseForm(page, options);
   await submitExpenseForm(page);
@@ -62,15 +83,27 @@ export async function expectExpenseOnDashboard(
   page: Page,
   formattedAmount: string,
 ) {
+  const summaryResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/v1/dashboard/summary") &&
+      response.request().method() === "GET" &&
+      response.ok(),
+  );
+
   await page.getByRole("link", { name: "Resumo" }).click();
   await expect(page).toHaveURL(/\/dashboard\/?$/);
+  await summaryResponse;
   await expect(page.getByRole("heading", { name: "Bem-vindo de volta!" })).toBeVisible();
 
   const expensesCard = page
-    .locator("div")
-    .filter({ has: page.getByText("Despesas", { exact: true }) })
-    .filter({ has: page.locator("h3") })
-    .first();
+    .getByTestId("dashboard-total-expenses")
+    .or(
+      page
+        .locator("div")
+        .filter({ has: page.getByText("Despesas", { exact: true }) })
+        .filter({ has: page.locator("h3") })
+        .first(),
+    );
 
   await expect(expensesCard).toContainText(formattedAmount);
 }

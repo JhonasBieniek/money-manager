@@ -11,6 +11,7 @@ interface ExpenseApi {
   occurredAt: string;
   paymentMethod?: PaymentMethod;
   cardLastFour?: string | null;
+  creditCardId?: string | null;
   tagIds?: string[];
 }
 
@@ -87,6 +88,7 @@ export function ExpenseModalForm({
         occurredAt: initialData.occurredAt,
         paymentMethod: initialData.paymentMethod,
         cardLastFour: initialData.cardLastFour,
+        creditCardId: initialData.creditCardId,
         tagIds: initialData.tagIds,
       }
     : undefined;

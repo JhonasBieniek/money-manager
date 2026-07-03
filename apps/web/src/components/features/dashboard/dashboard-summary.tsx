@@ -224,6 +224,7 @@ export function DashboardSummary() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
           className="glass group relative overflow-hidden rounded-3xl p-5 sm:rounded-[2.5rem] sm:p-6"
+          data-testid="dashboard-total-expenses"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-1">

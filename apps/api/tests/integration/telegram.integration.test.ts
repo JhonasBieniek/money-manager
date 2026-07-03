@@ -3,8 +3,7 @@ import request from "supertest";
 import { createTestApp } from "../helpers/app.js";
 import { registerUser } from "../helpers/auth.js";
 import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
-
-const INTERNAL_API_KEY = "dev-internal-key-change-me";
+import { INTERNAL_API_KEY } from "../helpers/telegram.js";
 
 describeWithDb("telegram integration", () => {
   const app = createTestApp();

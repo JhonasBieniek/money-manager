@@ -10,6 +10,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { expenseSourceEnum, paymentMethodEnum } from "./enums.js";
+import { creditCardStatements } from "./credit-card-statements.js";
+import { creditCards } from "./credit-cards.js";
 import { goalCategoryEnum } from "./goals.js";
 import { users } from "./users.js";
 
@@ -27,6 +29,13 @@ export const expenses = pgTable(
       .notNull()
       .default("cash"),
     cardLastFour: char("card_last_four", { length: 4 }),
+    creditCardId: uuid("credit_card_id").references(() => creditCards.id, {
+      onDelete: "set null",
+    }),
+    creditCardStatementId: uuid("credit_card_statement_id").references(
+      () => creditCardStatements.id,
+      { onDelete: "set null" },
+    ),
     source: expenseSourceEnum("source").notNull().default("manual"),
     idempotencyKey: text("idempotency_key"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
@@ -44,6 +53,8 @@ export const expenses = pgTable(
     index("expenses_user_goal_category_idx").on(t.userId, t.goalCategory),
     index("expenses_goal_category_idx").on(t.goalCategory),
     index("expenses_user_deleted_idx").on(t.userId, t.deletedAt),
+    index("expenses_credit_card_id_idx").on(t.creditCardId),
+    index("expenses_credit_card_statement_id_idx").on(t.creditCardStatementId),
     uniqueIndex("expenses_user_idempotency_uidx")
       .on(t.userId, t.idempotencyKey)
       .where(sql`"idempotency_key" IS NOT NULL AND "deleted_at" IS NULL`),

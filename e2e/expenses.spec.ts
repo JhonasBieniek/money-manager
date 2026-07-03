@@ -3,10 +3,13 @@ import {
   createExpense,
   expectExpenseInList,
   expectExpenseOnDashboard,
+  expectExpenseSaveBlocked,
+  fillExpenseForm,
+  openNewExpenseModal,
 } from "./helpers/expenses";
 
-test.describe("expenses", () => {
-  test("creates an expense and shows it on the list and dashboard", async ({
+test.describe("despesas", () => {
+  test("cria despesa e exibe na lista e no resumo", async ({
     authenticatedPage: page,
   }) => {
     const description = `E2E Almoço ${Date.now()}`;
@@ -18,30 +21,16 @@ test.describe("expenses", () => {
     await expectExpenseOnDashboard(page, formattedAmount);
   });
 
-  test("keeps the expense modal open when goal category is missing", async ({
+  test("mantém modal aberto quando categoria de meta está ausente", async ({
     authenticatedPage: page,
   }) => {
-    await page.getByRole("link", { name: "Despesas" }).click();
-    await page.getByRole("button", { name: "Nova despesa" }).click();
-
-    await page.getByPlaceholder("0,00").fill("10,00");
-    await page.getByPlaceholder("Ex: Almoço Executivo").fill("Sem categoria");
-
-    const createResponse = page
-      .waitForResponse(
-        (response) =>
-          response.url().includes("/v1/expenses") &&
-          response.request().method() === "POST",
-        { timeout: 1_500 },
-      )
-      .catch(() => null);
-
-    await page.getByRole("button", { name: "Salvar Despesa" }).click();
-
-    expect(await createResponse).toBeNull();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Nova despesa" }),
-    ).toBeVisible();
+    await openNewExpenseModal(page);
+    await fillExpenseForm(page, {
+      amount: "10,00",
+      description: "Sem categoria",
+      categoryLabel: null,
+    });
+    await expectExpenseSaveBlocked(page);
+    await expect(page.getByRole("heading", { name: "Nova despesa" })).toBeVisible();
   });
 });

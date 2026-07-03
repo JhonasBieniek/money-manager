@@ -2,6 +2,7 @@ export {
   getDb,
   getPool,
   checkDbConnection,
+  waitForDbConnection,
   closePool,
   type Database,
 } from "./client.js";

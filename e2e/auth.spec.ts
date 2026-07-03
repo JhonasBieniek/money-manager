@@ -9,8 +9,8 @@ import {
   skipOnboarding,
 } from "./helpers/auth";
 
-test.describe("auth", () => {
-  test("registers a new account and stores the access token in sessionStorage", async ({
+test.describe("autenticação", () => {
+  test("cadastra conta e persiste access token no sessionStorage", async ({
     page,
     testUser,
   }) => {
@@ -20,7 +20,10 @@ test.describe("auth", () => {
     await expectRefreshCookie(page);
   });
 
-  test("logs in with valid credentials after logout", async ({ page, testUser }) => {
+  test("faz login após logout com credenciais válidas", async ({
+    page,
+    testUser,
+  }) => {
     await skipOnboarding(page);
     await registerUser(page, testUser.email, testUser.password);
     await logoutUser(page);
@@ -31,7 +34,7 @@ test.describe("auth", () => {
     await expect(page.getByRole("heading", { name: "Bem-vindo de volta!" })).toBeVisible();
   });
 
-  test("rejects invalid login credentials", async ({ page, testUser }) => {
+  test("rejeita credenciais inválidas no login", async ({ page, testUser }) => {
     await skipOnboarding(page);
     await registerUser(page, testUser.email, testUser.password);
     await logoutUser(page);

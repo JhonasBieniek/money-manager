@@ -3,15 +3,7 @@ import request from "supertest";
 import { createTestApp } from "../helpers/app.js";
 import { registerUser } from "../helpers/auth.js";
 import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
-
-const defaultGoals = [
-  { category: "liberdade-financeira", percentage: 10 },
-  { category: "custos-fixos", percentage: 40 },
-  { category: "conforto", percentage: 10 },
-  { category: "metas", percentage: 20 },
-  { category: "prazeres", percentage: 10 },
-  { category: "conhecimento", percentage: 10 },
-];
+import { defaultGoals } from "../helpers/fixtures.js";
 
 describeWithDb("dashboard integration", () => {
   const app = createTestApp();

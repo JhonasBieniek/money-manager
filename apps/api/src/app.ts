@@ -5,6 +5,7 @@ import helmet from "helmet";
 import { checkDbConnection } from "@money-manager/db";
 import type { HealthResponse } from "@money-manager/types";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { creditCardsRoutes } from "./modules/credit-cards/credit-cards.routes.js";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { expensesInternalRoutes } from "./modules/expenses/expenses-internal.routes.js";
@@ -50,18 +51,20 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", async (_req, res) => {
-    const dbOk = await checkDbConnection();
+    const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+    const dbOk = hasDatabaseUrl ? await checkDbConnection() : true;
     const body: HealthResponse = {
-      status: "ok",
-      ...(process.env.DATABASE_URL ? { db: dbOk ? "ok" : "unavailable" } : {}),
+      status: dbOk ? "ok" : "degraded",
+      ...(hasDatabaseUrl ? { db: dbOk ? "ok" : "unavailable" } : {}),
     };
-    res.status(200).json(body);
+    res.status(dbOk ? 200 : 503).json(body);
   });
 
   app.use("/v1/auth", authRoutes);
   app.use("/v1/me", userRoutes);
   app.use("/v1/tags", tagsRoutes);
   app.use("/v1/goals", goalsRoutes);
+  app.use("/v1/credit-cards", creditCardsRoutes);
   app.use("/v1/expenses", expensesRoutes);
   app.use("/v1/incomes", incomesRoutes);
   app.use("/v1/dashboard", dashboardRoutes);

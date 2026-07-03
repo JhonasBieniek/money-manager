@@ -3,30 +3,21 @@ import request from "supertest";
 import { createTestApp } from "../helpers/app.js";
 import { registerUser } from "../helpers/auth.js";
 import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
-
-const INTERNAL_API_KEY = "dev-internal-key-change-me";
+import {
+  INTERNAL_API_KEY,
+  linkTelegramChat,
+} from "../helpers/telegram.js";
 
 describeWithDb("expenses internal integration", () => {
   const app = createTestApp();
 
   useIntegrationDbLifecycle();
 
-  async function linkChat(accessToken: string, chatId: string) {
-    const tokenRes = await request(app)
-      .post("/v1/telegram/link-token")
-      .set("Authorization", `Bearer ${accessToken}`);
-
-    await request(app)
-      .post("/v1/internal/telegram/link")
-      .set("x-internal-api-key", INTERNAL_API_KEY)
-      .send({ token: tokenRes.body.token, chatId });
-  }
-
   it("cria despesa via bot com source telegram_whisper", async () => {
     process.env.INTERNAL_API_KEY = INTERNAL_API_KEY;
     const { accessToken } = await registerUser(app);
     const chatId = "777888999";
-    await linkChat(accessToken, chatId);
+    await linkTelegramChat(app, accessToken, chatId);
 
     const res = await request(app)
       .post("/v1/internal/expenses")
@@ -47,7 +38,7 @@ describeWithDb("expenses internal integration", () => {
     process.env.INTERNAL_API_KEY = INTERNAL_API_KEY;
     const { accessToken } = await registerUser(app);
     const chatId = "111222333";
-    await linkChat(accessToken, chatId);
+    await linkTelegramChat(app, accessToken, chatId);
 
     const payload = {
       chatId,
@@ -76,7 +67,7 @@ describeWithDb("expenses internal integration", () => {
     process.env.INTERNAL_API_KEY = INTERNAL_API_KEY;
     const { accessToken } = await registerUser(app);
     const chatId = "444555666";
-    await linkChat(accessToken, chatId);
+    await linkTelegramChat(app, accessToken, chatId);
 
     const res = await request(app)
       .post("/v1/internal/expenses")

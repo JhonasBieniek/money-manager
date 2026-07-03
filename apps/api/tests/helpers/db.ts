@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach } from "@jest/globals";
+import { afterAll, beforeEach } from "@jest/globals";
 import { closePool, getPool } from "@money-manager/db";
 
 export function hasDatabase(): boolean {
@@ -9,7 +9,7 @@ export const describeWithDb = hasDatabase() ? describe : describe.skip;
 
 export async function truncateTables(): Promise<void> {
   await getPool().query(
-    "TRUNCATE TABLE telegram_inbound_messages, telegram_link_tokens, telegram_accounts, income_tags, incomes, expense_tags, expenses, goals, tags, sessions, users RESTART IDENTITY CASCADE",
+    "TRUNCATE TABLE telegram_inbound_messages, telegram_link_tokens, telegram_accounts, income_tags, incomes, expense_tags, expenses, credit_card_statements, credit_cards, goals, tags, sessions, users RESTART IDENTITY CASCADE",
   );
 }
 
@@ -19,10 +19,6 @@ export async function closeTestDb(): Promise<void> {
 
 export function useIntegrationDbLifecycle(): void {
   beforeEach(async () => {
-    await truncateTables();
-  });
-
-  afterEach(async () => {
     await truncateTables();
   });
 

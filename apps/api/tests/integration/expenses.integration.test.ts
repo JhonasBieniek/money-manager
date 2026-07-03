@@ -3,6 +3,10 @@ import request from "supertest";
 import { createTestApp } from "../helpers/app.js";
 import { registerUser } from "../helpers/auth.js";
 import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
+import {
+  INTERNAL_API_KEY,
+  linkTelegramChat,
+} from "../helpers/telegram.js";
 
 describeWithDb("expenses integration", () => {
   const app = createTestApp();
@@ -98,7 +102,7 @@ describeWithDb("expenses integration", () => {
         amount: 15,
         description: "Filtrada",
         goalCategory: "metas",
-        paymentMethodIndex: 1,
+        paymentMethodIndex: 0,
       });
 
     await request(app)
@@ -287,19 +291,11 @@ describeWithDb("expenses integration", () => {
   });
 
   it("lista e conta despesas sem goalCategory", async () => {
-    const INTERNAL_API_KEY = "dev-internal-key-change-me";
     process.env.INTERNAL_API_KEY = INTERNAL_API_KEY;
     const { accessToken } = await registerUser(app);
     const chatId = "999888777";
 
-    const tokenRes = await request(app)
-      .post("/v1/telegram/link-token")
-      .set("Authorization", `Bearer ${accessToken}`);
-
-    await request(app)
-      .post("/v1/internal/telegram/link")
-      .set("x-internal-api-key", INTERNAL_API_KEY)
-      .send({ token: tokenRes.body.token, chatId });
+    await linkTelegramChat(app, accessToken, chatId);
 
     await request(app)
       .post("/v1/expenses")

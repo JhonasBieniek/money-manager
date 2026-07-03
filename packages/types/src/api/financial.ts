@@ -32,6 +32,8 @@ export interface Expense {
   description: string;
   paymentMethod: PaymentMethod;
   cardLastFour: string | null;
+  creditCardId: string | null;
+  creditCardStatementId: string | null;
   source: ExpenseSource;
   idempotencyKey: string | null;
   occurredAt: string;

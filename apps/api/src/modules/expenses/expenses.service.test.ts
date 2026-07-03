@@ -18,6 +18,8 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     description: "description",
     paymentMethod: "payment_method",
     cardLastFour: "card_last_four",
+    creditCardId: "credit_card_id",
+    creditCardStatementId: "credit_card_statement_id",
     source: "source",
     idempotencyKey: "idempotency_key",
     occurredAt: "occurred_at",
@@ -37,6 +39,11 @@ jest.unstable_mockModule("@money-manager/utils", () => ({
 
 jest.unstable_mockModule("../tags/tags.service.js", () => ({
   assertTagsBelongToUser: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.unstable_mockModule("../credit-cards/credit-cards.service.js", () => ({
+  assignExpenseToStatement: jest.fn().mockResolvedValue(undefined),
+  recalculateStatementTotal: jest.fn().mockResolvedValue(undefined),
 }));
 
 const expensesService = await import("./expenses.service.js");

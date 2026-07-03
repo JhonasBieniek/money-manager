@@ -16,7 +16,7 @@ describe("createExpenseBodySchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("aceita valor zero", () => {
+  it("rejeita valor zero", () => {
     const result = createExpenseBodySchema.safeParse({
       amount: 0,
       description: "Zero",
@@ -24,15 +24,27 @@ describe("createExpenseBodySchema", () => {
       paymentMethodIndex: 0,
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
-  it("aceita valores positivos", () => {
+  it("exige cartão para método crédito", () => {
     const result = createExpenseBodySchema.safeParse({
       amount: 129.9,
       description: "Normal",
       goalCategory: "conforto",
       paymentMethodIndex: 1,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("aceita crédito com creditCardId", () => {
+    const result = createExpenseBodySchema.safeParse({
+      amount: 129.9,
+      description: "Normal",
+      goalCategory: "conforto",
+      paymentMethodIndex: 1,
+      creditCardId: "550e8400-e29b-41d4-a716-446655440000",
     });
 
     expect(result.success).toBe(true);

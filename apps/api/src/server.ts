@@ -1,15 +1,26 @@
 import "dotenv/config";
+import { waitForDbConnection } from "@money-manager/db";
 import { getJwtAccessSecret, getJwtRefreshSecret } from "./config/secrets.js";
 import { createApp } from "./app.js";
 
-getJwtAccessSecret();
-getJwtRefreshSecret();
+async function main(): Promise<void> {
+  getJwtAccessSecret();
+  getJwtRefreshSecret();
 
-const port = Number(process.env.API_PORT ?? 3001);
-const host = process.env.API_HOST ?? "0.0.0.0";
+  if (process.env.DATABASE_URL?.trim()) {
+    await waitForDbConnection();
+  }
 
-const app = createApp();
+  const port = Number(process.env.API_PORT ?? 3001);
+  const host = process.env.API_HOST ?? "0.0.0.0";
+  const app = createApp();
 
-app.listen(port, host, () => {
-  console.log(`api listening on http://${host}:${port}`);
+  app.listen(port, host, () => {
+    console.log(`api listening on http://${host}:${port}`);
+  });
+}
+
+main().catch((error: unknown) => {
+  console.error("[API] failed to start", error);
+  process.exit(1);
 });

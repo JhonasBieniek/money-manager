@@ -30,22 +30,52 @@ export const listExpensesQuerySchema = z
 
 export type ListExpensesQuery = z.infer<typeof listExpensesQuerySchema>;
 
-export const createExpenseBodySchema = z.object({
-  amount: z.number().nonnegative("O valor não pode ser negativo"),
+export const createExpenseBodySchema = z
+  .object({
+    amount: z.number().positive("O valor deve ser maior que zero"),
+    description: z.string().trim().min(1, "A descrição é obrigatória"),
+    goalCategory: goalCategorySchema,
+    occurredAt: z.string().datetime({ offset: true }).optional(),
+    paymentMethodIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+    cardLastFour: z.string().length(4).optional(),
+    creditCardId: z.string().uuid().optional(),
+    idempotencyKey: z.string().trim().min(1).optional(),
+    tagIds: z.array(z.string().uuid()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentMethodIndex === 1 && !data.creditCardId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione um cartão de crédito",
+        path: ["creditCardId"],
+      });
+    }
+  });
+
+export type CreateExpenseBody = z.infer<typeof createExpenseBodySchema>;
+
+const expenseBodyFields = z.object({
+  amount: z.number().positive("O valor deve ser maior que zero"),
   description: z.string().trim().min(1, "A descrição é obrigatória"),
   goalCategory: goalCategorySchema,
   occurredAt: z.string().datetime({ offset: true }).optional(),
   paymentMethodIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   cardLastFour: z.string().length(4).optional(),
-  idempotencyKey: z.string().trim().min(1).optional(),
+  creditCardId: z.string().uuid().optional(),
   tagIds: z.array(z.string().uuid()).optional(),
 });
 
-export type CreateExpenseBody = z.infer<typeof createExpenseBodySchema>;
-
-export const updateExpenseBodySchema = createExpenseBodySchema
+export const updateExpenseBodySchema = expenseBodyFields
   .partial()
-  .omit({ idempotencyKey: true });
+  .superRefine((data, ctx) => {
+    if (data.paymentMethodIndex === 1 && !data.creditCardId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione um cartão de crédito",
+        path: ["creditCardId"],
+      });
+    }
+  });
 
 export type UpdateExpenseBody = z.infer<typeof updateExpenseBodySchema>;
 

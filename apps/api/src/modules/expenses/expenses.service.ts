@@ -9,6 +9,9 @@ import { newId } from "@money-manager/utils";
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, sum } from "drizzle-orm";
 import { BadRequestError, NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
+import {
+  assignExpenseToStatement,
+} from "../credit-cards/credit-cards.service.js";
 import type {
   CreateExpenseBody,
   CreateBotExpenseBody,
@@ -58,6 +61,8 @@ async function toExpense(
     description: row.description,
     paymentMethod: row.paymentMethod as PaymentMethod,
     cardLastFour: row.cardLastFour,
+    creditCardId: row.creditCardId,
+    creditCardStatementId: row.creditCardStatementId,
     source: row.source,
     idempotencyKey: row.idempotencyKey,
     occurredAt: row.occurredAt.toISOString(),
@@ -165,6 +170,7 @@ export async function createExpense(
         description: input.description,
         paymentMethod,
         cardLastFour: input.cardLastFour ?? null,
+        creditCardId: input.creditCardId ?? null,
         source: "manual",
         idempotencyKey: input.idempotencyKey ?? null,
         occurredAt,
@@ -184,7 +190,25 @@ export async function createExpense(
       );
     }
 
-    return { expense: inserted, tagIds: input.tagIds };
+    await assignExpenseToStatement(
+      tx,
+      userId,
+      id,
+      paymentMethod,
+      input.creditCardId ?? null,
+      occurredAt,
+    );
+
+    const [withAssignment] = await tx
+      .select()
+      .from(expenses)
+      .where(eq(expenses.id, id))
+      .limit(1);
+
+    return {
+      expense: withAssignment ?? inserted,
+      tagIds: input.tagIds,
+    };
   });
 
   return toExpense(row.expense, row.tagIds);
@@ -349,6 +373,19 @@ export async function updateExpense(
       updatedAt: new Date(),
     };
 
+    const nextPaymentMethod =
+      input.paymentMethodIndex !== undefined
+        ? PAYMENT_METHOD_MAP[input.paymentMethodIndex]
+        : existing.paymentMethod;
+    const nextOccurredAt =
+      input.occurredAt !== undefined
+        ? new Date(input.occurredAt)
+        : existing.occurredAt;
+    const nextCreditCardId =
+      input.creditCardId !== undefined
+        ? input.creditCardId
+        : existing.creditCardId;
+
     if (input.amount !== undefined) {
       patch.amountCents = Math.round(input.amount * 100);
     }
@@ -359,13 +396,20 @@ export async function updateExpense(
       patch.goalCategory = input.goalCategory;
     }
     if (input.occurredAt !== undefined) {
-      patch.occurredAt = new Date(input.occurredAt);
+      patch.occurredAt = nextOccurredAt;
     }
     if (input.paymentMethodIndex !== undefined) {
-      patch.paymentMethod = PAYMENT_METHOD_MAP[input.paymentMethodIndex];
+      patch.paymentMethod = nextPaymentMethod;
     }
     if (input.cardLastFour !== undefined) {
       patch.cardLastFour = input.cardLastFour;
+    }
+    if (input.creditCardId !== undefined) {
+      patch.creditCardId = input.creditCardId;
+    }
+
+    if (nextPaymentMethod === "credit_card" && !nextCreditCardId) {
+      throw new BadRequestError("Selecione um cartão de crédito");
     }
 
     const [updated] = await tx
@@ -390,7 +434,35 @@ export async function updateExpense(
       }
     }
 
-    return { expense: updated, tagIds: input.tagIds };
+    const shouldReassign =
+      input.occurredAt !== undefined ||
+      input.creditCardId !== undefined ||
+      input.paymentMethodIndex !== undefined;
+
+    if (shouldReassign) {
+      await assignExpenseToStatement(
+        tx,
+        userId,
+        expenseId,
+        nextPaymentMethod,
+        nextCreditCardId,
+        nextOccurredAt,
+        existing.creditCardStatementId,
+      );
+    } else if (input.amount !== undefined && existing.creditCardStatementId) {
+      const { recalculateStatementTotal } = await import(
+        "../credit-cards/credit-cards.service.js"
+      );
+      await recalculateStatementTotal(tx, existing.creditCardStatementId);
+    }
+
+    const [finalRow] = await tx
+      .select()
+      .from(expenses)
+      .where(eq(expenses.id, expenseId))
+      .limit(1);
+
+    return { expense: finalRow ?? updated, tagIds: input.tagIds };
   });
 
   return toExpense(row.expense, row.tagIds);
@@ -420,6 +492,13 @@ export async function deleteExpense(userId: string, expenseId: string): Promise<
       .update(expenses)
       .set({ deletedAt: now, updatedAt: now })
       .where(eq(expenses.id, expenseId));
+
+    if (existing.creditCardStatementId) {
+      const { recalculateStatementTotal } = await import(
+        "../credit-cards/credit-cards.service.js"
+      );
+      await recalculateStatementTotal(tx, existing.creditCardStatementId);
+    }
   });
 }
 

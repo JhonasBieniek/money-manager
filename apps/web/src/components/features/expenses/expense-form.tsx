@@ -50,6 +50,7 @@ interface ExpenseFormProps {
     occurredAt: string;
     paymentMethod?: PaymentMethod;
     cardLastFour?: string | null;
+    creditCardId?: string | null;
   };
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -60,10 +61,17 @@ const goalCategoryOptions = GOAL_CATEGORIES.map((value) => ({
   label: GOAL_CATEGORY_LABELS[value],
 }));
 
+interface CreditCardOption {
+  id: string;
+  name: string;
+  lastFour: string;
+}
+
 export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [tags, setTags] = useState<ExpenseTag[]>([]);
+  const [creditCards, setCreditCards] = useState<CreditCardOption[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>(
     initialData?.tagIds ?? [],
   );
@@ -86,10 +94,24 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
       ? (PAYMENT_METHOD_TO_INDEX[initialData.paymentMethod] ?? 0)
       : 0,
   );
-  const [cardLastFour, setCardLastFour] = useState(
-    initialData?.cardLastFour || "",
+  const [creditCardId, setCreditCardId] = useState(
+    initialData?.creditCardId ?? "",
   );
   const [error, setError] = useState<string | null>(null);
+
+  const legacyUnlinkedCard =
+    paymentMethodIndex === 1 &&
+    !creditCardId &&
+    Boolean(initialData?.cardLastFour);
+
+  const creditCardOptions = useMemo(
+    () =>
+      creditCards.map((card) => ({
+        value: card.id,
+        label: `${card.name} · ${card.lastFour}`,
+      })),
+    [creditCards],
+  );
 
   const tagOptions = useMemo(
     () => tags.map((t) => ({ value: t.id, label: t.name })),
@@ -111,6 +133,21 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
     void loadTags();
   }, []);
 
+  useEffect(() => {
+    async function loadCards() {
+      try {
+        const res = await apiFetch("/v1/credit-cards");
+        if (res.ok) {
+          const data = (await res.json()) as { items: CreditCardOption[] };
+          setCreditCards(data.items ?? []);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void loadCards();
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -122,13 +159,30 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
       return;
     }
 
+    if (paymentMethodIndex === 1 && !creditCardId) {
+      setError(
+        legacyUnlinkedCard
+          ? "Cartão não vinculado — selecione um cartão cadastrado"
+          : "Selecione um cartão de crédito",
+      );
+      setLoading(false);
+      return;
+    }
+
+    const parsedAmount = parseMoneyAmountInput(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Informe um valor maior que zero");
+      setLoading(false);
+      return;
+    }
+
     const payload = {
-      amount: parseMoneyAmountInput(amount),
+      amount: parsedAmount,
       description,
       goalCategory,
       occurredAt: dateInputToIso(occurredAt),
       paymentMethodIndex: Number(paymentMethodIndex),
-      cardLastFour: paymentMethodIndex === 1 ? cardLastFour : undefined,
+      creditCardId: paymentMethodIndex === 1 ? creditCardId : undefined,
       tagIds: selectedTags.length > 0 ? selectedTags : undefined,
     };
 
@@ -281,15 +335,25 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
         {paymentMethodIndex === 1 ? (
           <div className="space-y-3">
             <label className="px-1 text-xs font-bold text-zinc-400">
-              Final do Cartão
+              Cartão de crédito
             </label>
-            <input
-              type="text"
-              maxLength={4}
-              value={cardLastFour}
-              onChange={(e) => setCardLastFour(e.target.value)}
-              placeholder="1234"
-              className="h-14 w-full rounded-2xl border border-white/5 bg-white/5 px-5 text-zinc-100 outline-none transition-all focus:bg-white/10 focus:ring-1 focus:ring-emerald-500/50"
+            {legacyUnlinkedCard ? (
+              <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
+                Despesa legada com final ···{initialData?.cardLastFour} sem
+                vínculo — selecione o cartão correto.
+              </p>
+            ) : null}
+            <SearchableSelect
+              options={creditCardOptions}
+              value={creditCardId}
+              onChange={setCreditCardId}
+              placeholder="Selecione o cartão…"
+              required
+              emptyMessage={
+                creditCards.length === 0
+                  ? "Cadastre um cartão em Cartões"
+                  : "Nenhum cartão encontrado"
+              }
             />
           </div>
         ) : null}

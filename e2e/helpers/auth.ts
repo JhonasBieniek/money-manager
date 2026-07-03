@@ -51,7 +51,8 @@ export async function loginUser(page: Page, email: string, password: string) {
   const response = await loginResponse;
 
   if (!response.ok()) {
-    return;
+    const body = await response.text();
+    throw new Error(`Login failed (${response.status()}): ${body}`);
   }
 
   await expect(page).toHaveURL(/\/dashboard/);

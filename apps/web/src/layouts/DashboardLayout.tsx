@@ -1,4 +1,5 @@
 import {
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -28,6 +29,7 @@ const navItems = [
   { name: "Despesas", href: "/dashboard/expenses", icon: ReceiptText },
   { name: "Receitas", href: "/dashboard/incomes", icon: TrendingUp },
   { name: "Metas", href: "/dashboard/goals", icon: Target },
+  { name: "Cartões", href: "/dashboard/cards", icon: CreditCard },
   { name: "Tags", href: "/dashboard/tags", icon: Tags },
   { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
@@ -44,6 +46,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/dashboard/tags")) return "Tags";
   if (pathname.startsWith("/dashboard/settings")) return "Configurações";
   if (pathname.startsWith("/dashboard/goals")) return "Metas";
+  if (pathname.startsWith("/dashboard/cards")) return "Cartões";
   if (pathname.startsWith("/dashboard/expenses")) return "Despesas";
   if (pathname.startsWith("/dashboard/incomes")) return "Receitas";
   return "Resumo";
