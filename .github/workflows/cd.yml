@@ -14,21 +14,20 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  actions: read
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-and-push:
+  meta:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
     outputs:
       deploy_sha: ${{ steps.meta.outputs.deploy_sha }}
       image_prefix: ${{ steps.meta.outputs.image_prefix }}
-
     steps:
       - name: Resolve deploy SHA
         id: meta
@@ -41,90 +40,322 @@ jobs:
             echo "deploy_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
           fi
 
+  detect-changes:
+    needs: meta
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+      bot: ${{ steps.filter.outputs.bot }}
+      stt: ${{ steps.filter.outputs.stt }}
+      shared: ${{ steps.filter.outputs.shared }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+    steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.meta.outputs.deploy_sha }}
+          ref: ${{ needs.meta.outputs.deploy_sha }}
+          fetch-depth: 0
 
-      - uses: docker/setup-qemu-action@v3
+      # CI records github.event.before/after on master pushes; CD has no push payload.
+      - name: Download push range from CI
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-range-${{ needs.meta.outputs.deploy_sha }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: deploy-range
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Resolve diff base
+        id: diff
+        run: |
+          DEPLOY_SHA="${{ needs.meta.outputs.deploy_sha }}"
+
+          if [[ -f deploy-range/before && -f deploy-range/after ]]; then
+            BEFORE="$(tr -d '[:space:]' < deploy-range/before)"
+            AFTER="$(tr -d '[:space:]' < deploy-range/after)"
+            echo "Push range from CI: ${BEFORE}..${AFTER}"
+
+            # GitHub sends 40 zeroes for before on the first push or a new branch.
+            if [[ "$BEFORE" =~ ^0+$ ]]; then
+              echo "base=${DEPLOY_SHA}~1" >> "$GITHUB_OUTPUT"
+              echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
+              echo "strategy=parent-fallback (zero before)" >> "$GITHUB_OUTPUT"
+            else
+              echo "base=${BEFORE}" >> "$GITHUB_OUTPUT"
+              echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
+              echo "strategy=push-range" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Fallback when artifact is missing (first deploy after this change) or workflow_dispatch.
+            echo "base=${DEPLOY_SHA}~1" >> "$GITHUB_OUTPUT"
+            echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
+            echo "strategy=parent-fallback (no artifact)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ steps.diff.outputs.base }}
+          ref: ${{ steps.diff.outputs.ref }}
+          filters: |
+            shared:
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - tsconfig.base.json
+              - eslint.config.mjs
+            api:
+              - apps/api/**
+              - packages/db/**
+              - packages/types/**
+              - packages/utils/**
+              - apps/api/Dockerfile
+            web:
+              - apps/web/**
+              - packages/types/**
+              - packages/utils/**
+              - apps/web/Dockerfile
+            bot:
+              - apps/bot/**
+              - apps/bot/Dockerfile
+            stt:
+              - apps/stt/**
+            workflow:
+              - .github/workflows/cd.yml
+              - .github/workflows/ci.yml
+
+      - name: Log detected changes
+        run: |
+          echo "diff strategy=${{ steps.diff.outputs.strategy }} base=${{ steps.diff.outputs.base }} ref=${{ steps.diff.outputs.ref }}"
+          echo "api=${{ steps.filter.outputs.api }} web=${{ steps.filter.outputs.web }} bot=${{ steps.filter.outputs.bot }} stt=${{ steps.filter.outputs.stt }}"
+          echo "shared=${{ steps.filter.outputs.shared }} workflow=${{ steps.filter.outputs.workflow }}"
+
+  # matrix.* is not available in job-level if — resolve service lists here instead.
+  resolve-matrix:
+    needs: [meta, detect-changes]
+    if: >-
+      always() &&
+      needs.meta.result == 'success' &&
+      needs.detect-changes.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      build_services: ${{ steps.resolve.outputs.build_services }}
+      retag_services: ${{ steps.resolve.outputs.retag_services }}
+    steps:
+      - name: Resolve build and retag matrices
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_CHANGED: ${{ needs.detect-changes.outputs.workflow }}
+          API_CHANGED: ${{ needs.detect-changes.outputs.api }}
+          WEB_CHANGED: ${{ needs.detect-changes.outputs.web }}
+          BOT_CHANGED: ${{ needs.detect-changes.outputs.bot }}
+          STT_CHANGED: ${{ needs.detect-changes.outputs.stt }}
+          SHARED_CHANGED: ${{ needs.detect-changes.outputs.shared }}
+        run: |
+          should_build() {
+            local service="$1"
+
+            if [[ "$EVENT_NAME" == "workflow_dispatch" || "$WORKFLOW_CHANGED" == "true" ]]; then
+              return 0
+            fi
+
+            if [[ "$service" != "stt" && "$SHARED_CHANGED" == "true" ]]; then
+              return 0
+            fi
+
+            case "$service" in
+              api) [[ "$API_CHANGED" == "true" ]] ;;
+              web) [[ "$WEB_CHANGED" == "true" ]] ;;
+              bot) [[ "$BOT_CHANGED" == "true" ]] ;;
+              stt) [[ "$STT_CHANGED" == "true" ]] ;;
+              *) return 1 ;;
+            esac
+          }
+
+          build=()
+          retag=()
+
+          for service in api web bot stt; do
+            if should_build "$service"; then
+              build+=("$service")
+            elif [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+              retag+=("$service")
+            fi
+          done
+
+          if [[ ${#build[@]} -eq 0 ]]; then
+            echo "build_services=[]" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_services=$(jq -nc --args '$ARGS.positional' "${build[@]}")" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ ${#retag[@]} -eq 0 ]]; then
+            echo "retag_services=[]" >> "$GITHUB_OUTPUT"
+          else
+            echo "retag_services=$(jq -nc --args '$ARGS.positional' "${retag[@]}")" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Build: ${build[*]:-none}"
+          echo "Retag: ${retag[*]:-none}"
+
+  build:
+    name: build ${{ matrix.service }}
+    needs: [meta, detect-changes, resolve-matrix]
+    if: >-
+      always() &&
+      needs.meta.result == 'success' &&
+      needs.detect-changes.result == 'success' &&
+      needs.resolve-matrix.result == 'success' &&
+      needs.resolve-matrix.outputs.build_services != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.resolve-matrix.outputs.build_services) }}
+
+    steps:
+      - name: Resolve image config
+        id: config
+        run: |
+          case "${{ matrix.service }}" in
+            api)
+              echo "context=." >> "$GITHUB_OUTPUT"
+              echo "file=apps/api/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            web)
+              echo "context=." >> "$GITHUB_OUTPUT"
+              echo "file=apps/web/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            bot)
+              echo "context=." >> "$GITHUB_OUTPUT"
+              echo "file=apps/bot/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            stt)
+              echo "context=apps/stt" >> "$GITHUB_OUTPUT"
+              echo "file=apps/stt/Dockerfile" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown service: ${{ matrix.service }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.meta.outputs.deploy_sha }}
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push API image (linux/arm64)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.image_prefix }}-api:${{ steps.meta.outputs.deploy_sha }}
-            ${{ steps.meta.outputs.image_prefix }}-api:latest
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+      - name: Set build args
+        id: buildargs
+        run: |
+          case "${{ matrix.service }}" in
+            web)
+              {
+                echo "args<<EOF"
+                echo "VITE_API_URL=https://${{ secrets.DOMAIN }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+              ;;
+            stt)
+              {
+                echo "args<<EOF"
+                echo "STT_MODEL=${{ vars.STT_MODEL || 'small' }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "args=" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
-      - name: Build and push Web image (linux/arm64)
+      - name: Build and push ${{ matrix.service }} image (linux/arm64)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: apps/web/Dockerfile
+          context: ${{ steps.config.outputs.context }}
+          file: ${{ steps.config.outputs.file }}
           platforms: linux/arm64
           push: true
-          build-args: |
-            VITE_API_URL=https://${{ secrets.DOMAIN }}
+          build-args: ${{ steps.buildargs.outputs.args != '' && steps.buildargs.outputs.args || '' }}
           tags: |
-            ${{ steps.meta.outputs.image_prefix }}-web:${{ steps.meta.outputs.deploy_sha }}
-            ${{ steps.meta.outputs.image_prefix }}-web:latest
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+            ${{ needs.meta.outputs.image_prefix }}-${{ matrix.service }}:${{ needs.meta.outputs.deploy_sha }}
+            ${{ needs.meta.outputs.image_prefix }}-${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Build and push Bot image (linux/arm64)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/bot/Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.image_prefix }}-bot:${{ steps.meta.outputs.deploy_sha }}
-            ${{ steps.meta.outputs.image_prefix }}-bot:latest
-          cache-from: type=gha,scope=bot
-          cache-to: type=gha,mode=max,scope=bot
+  # Unchanged images are retagged (latest -> deploy SHA) without rebuilding.
+  retag:
+    name: retag ${{ matrix.service }}
+    needs: [meta, detect-changes, build, resolve-matrix]
+    if: >-
+      always() &&
+      needs.meta.result == 'success' &&
+      needs.detect-changes.result == 'success' &&
+      needs.resolve-matrix.result == 'success' &&
+      needs.build.result != 'failure' &&
+      needs.build.result != 'cancelled' &&
+      needs.resolve-matrix.outputs.retag_services != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.resolve-matrix.outputs.retag_services) }}
 
-      - name: Build and push STT image (linux/arm64)
-        uses: docker/build-push-action@v6
+    steps:
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
         with:
-          context: apps/stt
-          file: apps/stt/Dockerfile
-          platforms: linux/arm64
-          push: true
-          build-args: |
-            STT_MODEL=${{ vars.STT_MODEL || 'small' }}
-          tags: |
-            ${{ steps.meta.outputs.image_prefix }}-stt:${{ steps.meta.outputs.deploy_sha }}
-            ${{ steps.meta.outputs.image_prefix }}-stt:latest
-          cache-from: type=gha,scope=stt
-          cache-to: type=gha,mode=max,scope=stt
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag ${{ matrix.service }} (latest -> deploy SHA)
+        run: |
+          IMAGE="${{ needs.meta.outputs.image_prefix }}-${{ matrix.service }}"
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${{ needs.meta.outputs.deploy_sha }}" \
+            "${IMAGE}:latest"
 
   deploy:
-    needs: build-and-push
+    needs: [meta, build, retag, resolve-matrix]
+    if: >-
+      always() &&
+      needs.meta.result == 'success' &&
+      needs.resolve-matrix.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.retag.result == 'success' || needs.retag.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
 
     steps:
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.5
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DEPLOY_SHA: ${{ needs.build-and-push.outputs.deploy_sha }}
-          MM_IMAGE_PREFIX: ${{ needs.build-and-push.outputs.image_prefix }}
+          DEPLOY_SHA: ${{ needs.meta.outputs.deploy_sha }}
+          MM_IMAGE_PREFIX: ${{ needs.meta.outputs.image_prefix }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN || github.token }}
           GHCR_USER: ${{ github.actor }}
         with:
@@ -132,7 +363,6 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: DEPLOY_PATH,DEPLOY_SHA,MM_IMAGE_PREFIX,GHCR_TOKEN,GHCR_USER
-          script_stop: true
           script: |
             set -euo pipefail
 

@@ -60,6 +60,22 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Persist push before/after so CD can diff multi-commit pushes (workflow_run has no push payload).
+      - name: Record push range for CD
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          mkdir -p deploy-range
+          echo "${{ github.event.before }}" > deploy-range/before
+          echo "${{ github.event.after }}" > deploy-range/after
+
+      - name: Upload push range artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-range-${{ github.sha }}
+          path: deploy-range/
+          retention-days: 7
+
   e2e:
     runs-on: ubuntu-latest
     needs: ci
