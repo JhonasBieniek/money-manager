@@ -16,6 +16,7 @@ export function CreditCardsPage() {
   const defaults = getCurrentMonthYear();
   const [month, setMonth] = useState(defaults.month);
   const [year, setYear] = useState(defaults.year);
+  const [periodFilterActive, setPeriodFilterActive] = useState(false);
   const [items, setItems] = useState<CreditCardWithCurrentStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +45,10 @@ export function CreditCardsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(
-        `/v1/credit-cards/statements/current?month=${month}&year=${year}`,
-      );
+      const path = periodFilterActive
+        ? `/v1/credit-cards/statements/current?month=${month}&year=${year}`
+        : "/v1/credit-cards/statements/current";
+      const res = await apiFetch(path);
       if (!res.ok) throw new Error("Falha ao carregar faturas");
       const data = (await res.json()) as { items: CreditCardWithCurrentStatement[] };
       setItems(data.items ?? []);
@@ -55,7 +57,25 @@ export function CreditCardsPage() {
     } finally {
       setLoading(false);
     }
-  }, [month, year]);
+  }, [month, year, periodFilterActive]);
+
+  useEffect(() => {
+    if (periodFilterActive || items.length === 0) {
+      return;
+    }
+
+    const statement = items.find((item) => item.currentStatement)?.currentStatement;
+    if (!statement) {
+      return;
+    }
+
+    const cycleMonth = String(statement.cycleMonth);
+    const cycleYear = String(statement.cycleYear);
+    if (month !== cycleMonth || year !== cycleYear) {
+      setMonth(cycleMonth);
+      setYear(cycleYear);
+    }
+  }, [items, periodFilterActive, month, year]);
 
   useEffect(() => {
     void loadStatements();
@@ -106,14 +126,20 @@ export function CreditCardsPage() {
         <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
         <FilterSelect
           value={month}
-          onChange={setMonth}
+          onChange={(value) => {
+            setPeriodFilterActive(true);
+            setMonth(value);
+          }}
           options={monthOptions}
           ariaLabel="Mês"
         />
         <span className="text-zinc-700">/</span>
         <FilterSelect
           value={year}
-          onChange={setYear}
+          onChange={(value) => {
+            setPeriodFilterActive(true);
+            setYear(value);
+          }}
           options={yearOptions}
           ariaLabel="Ano"
           className="max-w-[5.5rem]"
