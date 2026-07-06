@@ -690,8 +690,6 @@ export async function getCurrentStatements(
   await autoCloseExpiredOpenStatementsForUser(userId);
 
   const now = new Date();
-  const year = query.year ?? now.getFullYear();
-  const month = query.month ?? now.getMonth() + 1;
 
   const cards = await getDb()
     .select()
@@ -702,14 +700,19 @@ export async function getCurrentStatements(
   const items: CreditCardWithCurrentStatement[] = [];
 
   for (const card of cards) {
+    const cycle =
+      query.year !== undefined && query.month !== undefined
+        ? { cycleYear: query.year, cycleMonth: query.month }
+        : findCurrentBillingCycle(now, card.dueDay, card.closingOffsetDays);
+
     const [statement] = await getDb()
       .select()
       .from(creditCardStatements)
       .where(
         and(
           eq(creditCardStatements.creditCardId, card.id),
-          eq(creditCardStatements.cycleYear, year),
-          eq(creditCardStatements.cycleMonth, month),
+          eq(creditCardStatements.cycleYear, cycle.cycleYear),
+          eq(creditCardStatements.cycleMonth, cycle.cycleMonth),
         ),
       )
       .limit(1);

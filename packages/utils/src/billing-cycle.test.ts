@@ -6,6 +6,7 @@ import {
   computeClosingDate,
   computeNominalClosingDay,
   findBillingCycleForPurchase,
+  findCurrentBillingCycle,
   isDateInPeriod,
   toDateString,
 } from "./billing-cycle.js";
@@ -114,6 +115,30 @@ describe("findBillingCycleForPurchase", () => {
     expect(julyCycle.cycleMonth).toBe(7);
     expect(
       isDateInPeriod(june25, julyCycle.periodStart, julyCycle.periodEnd),
+    ).toBe(true);
+  });
+});
+
+describe("findCurrentBillingCycle", () => {
+  it("após o fechamento do mês civil, retorna o ciclo do vencimento seguinte", () => {
+    const afterJulyClose = calendarDate(2026, 7, 6);
+    const cycle = findCurrentBillingCycle(afterJulyClose, 10, 7);
+    expect(cycle.cycleYear).toBe(2026);
+    expect(cycle.cycleMonth).toBe(8);
+    expect(
+      isDateInPeriod(afterJulyClose, cycle.periodStart, cycle.periodEnd),
+    ).toBe(true);
+  });
+});
+
+describe("findCurrentBillingCycle", () => {
+  it("após o fechamento do mês civil, retorna o ciclo do vencimento seguinte", () => {
+    const afterJulyClose = calendarDate(2026, 7, 6);
+    const cycle = findCurrentBillingCycle(afterJulyClose, 10, 7);
+    expect(cycle.cycleYear).toBe(2026);
+    expect(cycle.cycleMonth).toBe(8);
+    expect(
+      isDateInPeriod(afterJulyClose, cycle.periodStart, cycle.periodEnd),
     ).toBe(true);
   });
 });
