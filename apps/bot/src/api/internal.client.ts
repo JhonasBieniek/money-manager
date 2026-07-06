@@ -22,6 +22,10 @@ export function createInternalClient(config: InternalClientConfig) {
       const url = `${config.apiBaseUrl.replace(/\/$/, "")}${path}`;
       return fetch(url, { method: "PATCH", headers, body: JSON.stringify(body) });
     },
+    async deleteJson(path: string): Promise<Response> {
+      const url = `${config.apiBaseUrl.replace(/\/$/, "")}${path}`;
+      return fetch(url, { method: "DELETE", headers });
+    },
   };
 }
 

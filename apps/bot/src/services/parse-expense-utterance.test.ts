@@ -12,6 +12,15 @@ describe("parseExpenseUtterances", () => {
     expect(result.items[2]).toMatchObject({ amount: 20, description: "banana" });
   });
 
+  it("extracts multiple items when STT mixes reais and R$", () => {
+    const result = parseExpenseUtterances(
+      "400 reais no mercado e R$ 150 na academia",
+    );
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toMatchObject({ amount: 400, description: "mercado" });
+    expect(result.items[1]).toMatchObject({ amount: 150, description: "academia" });
+  });
+
   it("applies global payment method to all items", () => {
     const result = parseExpenseUtterances(
       "40 reais em manga, 30 reais em maçã, no pix",

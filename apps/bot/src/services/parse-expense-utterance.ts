@@ -16,7 +16,7 @@ const AMOUNT_PATTERNS = [
 ];
 
 const ITEM_PATTERN =
-  /(\d+(?:[.,]\d{1,2})?)\s*reais?(?:\s*(?:em|no|na|nos|nas|de|da|do))?\s*([a-zà-ú0-9][\wà-ú\s-]{0,40})/gi;
+  /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(?:reais?)?(?:\s*(?:em|no|na|nos|nas|de|da|do))?\s*([a-zà-ú0-9][\wà-ú\s-]{0,40}?)(?=\s+e\s+(?:(?:r\$\s*)?\d)|\s*[,;]\s+(?:(?:r\$\s*)?\d)|$)/gi;
 
 const PAYMENT_PATTERNS: Array<{
   pattern: RegExp;
@@ -79,9 +79,27 @@ function parseSegment(segment: string): ExpenseUtteranceItem | null {
   if (!trimmed) {
     return null;
   }
+
+  const simpleMatch = !/\breais?\b/i.test(trimmed)
+    ? trimmed.match(/^(\d+(?:[.,]\d{1,2})?)\s+(.+)$/)
+    : null;
+  if (simpleMatch) {
+    const normalized = simpleMatch[1]!.replace(/\./g, "").replace(",", ".");
+    const amount = Number.parseFloat(normalized);
+    const description = cleanDescription(simpleMatch[2]!);
+    const paymentMethod = parsePaymentMethod(trimmed);
+    if (Number.isFinite(amount) && amount > 0 && description) {
+      return {
+        amount,
+        description,
+        ...(paymentMethod ? { paymentMethod } : {}),
+      };
+    }
+  }
+
   const amount = parseAmountFromSegment(trimmed);
   const itemPattern =
-    /(\d+(?:[.,]\d{1,2})?)\s*reais?(?:\s*(?:em|no|na|nos|nas|de|da|do))?\s*([a-zà-ú0-9][\wà-ú\s-]{0,40})/i;
+    /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(?:reais?)?(?:\s*(?:em|no|na|nos|nas|de|da|do))?\s*([a-zà-ú0-9][\wà-ú\s-]{0,40})/i;
   const match = trimmed.match(itemPattern);
   let description = match?.[2] ? cleanDescription(match[2]) : undefined;
   if (!description && amount !== undefined) {
@@ -114,15 +132,15 @@ function parseSegment(segment: string): ExpenseUtteranceItem | null {
 
 function splitSegments(text: string): string[] {
   const normalized = text.replace(/\s+/g, " ").trim();
-  const byComma = normalized.split(/\s*[,;]\s*(?=\d+(?:[.,]\d+)?\s*reais)/i);
+  const byComma = normalized.split(/\s*[,;]\s+(?=(?:r\$\s*)?\d)/i);
   if (byComma.length > 1) {
     return byComma;
   }
-  const byDot = normalized.split(/\.\s+(?=\d)/);
+  const byDot = normalized.split(/\.\s+(?=(?:r\$\s*)?\d)/i);
   if (byDot.length > 1) {
     return byDot;
   }
-  const byE = normalized.split(/\s+e\s+(?=\d)/i);
+  const byE = normalized.split(/\s+e\s+(?=(?:r\$\s*)?\d)/i);
   if (byE.length > 1) {
     return byE;
   }

@@ -4,11 +4,15 @@ import { createServer } from "node:http";
 import { createInternalClient } from "./api/internal.client.js";
 import {
   createHandleStart,
-  handleCancel,
+  createHandleCancel,
+  createHandleFinalize,
   handleHelp,
 } from "./handlers/command.handler.js";
-import { handleSync } from "./handlers/sync.handler.js";
+import { handleCallback } from "./handlers/callback.handler.js";
+import { handleReply } from "./handlers/reply.handler.js";
+import { handleText } from "./handlers/text.handler.js";
 import { handleVoice } from "./handlers/voice.handler.js";
+import { startInboundRetryWorker } from "./services/inbound-retry.service.js";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -32,16 +36,33 @@ const internal = createInternalClient({
 });
 
 const bot = new Bot(token);
+const syncEnv = { sttServiceUrl, internal };
 
 bot.command("start", createHandleStart(internal));
 bot.command("help", handleHelp);
-bot.command("cancel", handleCancel);
-bot.command("sync", (ctx) => handleSync(ctx, { sttServiceUrl, internal }));
+bot.command("cancel", createHandleCancel(internal));
+bot.command("finalizar", createHandleFinalize(internal));
+
+bot.on("callback_query:data", (ctx) => handleCallback(ctx, { internal }));
+
+bot.on("message", async (ctx, next) => {
+  if (ctx.message?.reply_to_message) {
+    const handled = await handleReply(ctx, { internal });
+    if (handled) {
+      return;
+    }
+  }
+  await next();
+});
+
+bot.on("message:text", (ctx) => handleText(ctx, { internal }));
 bot.on(["message:voice", "message:audio"], (ctx) =>
-  handleVoice(ctx, { sttServiceUrl, internal }),
+  handleVoice(ctx, syncEnv),
 );
 
 async function main() {
+  void startInboundRetryWorker(bot.api, syncEnv);
+
   if (usePolling) {
     await bot.api.deleteWebhook({ drop_pending_updates: false });
     await bot.start({

@@ -99,16 +99,50 @@ export const expenseIdParamsSchema = z.object({
 
 export type ExpenseIdParams = z.infer<typeof expenseIdParamsSchema>;
 
-export const createBotExpenseBodySchema = z.object({
-  chatId: z.string().regex(/^\d+$/),
-  amount: z.number().positive(),
-  description: z.string().trim().min(1),
-  goalCategory: goalCategorySchema.optional(),
-  occurredAt: z.string().datetime({ offset: true }).optional(),
-  paymentMethodIndex: z.literal(2).default(2),
-  idempotencyKey: z.string().trim().min(1),
-  source: z.literal("telegram_whisper"),
-  tagIds: z.array(z.string().uuid()).optional(),
-});
+export const createBotExpenseBodySchema = z
+  .object({
+    chatId: z.string().regex(/^\d+$/),
+    amount: z.number().positive(),
+    description: z.string().trim().min(1),
+    goalCategory: goalCategorySchema.optional(),
+    occurredAt: z.string().datetime({ offset: true }).optional(),
+    paymentMethodIndex: z.union([z.literal(0), z.literal(1), z.literal(2)]).default(2),
+    creditCardId: z.string().uuid().optional(),
+    idempotencyKey: z.string().trim().min(1),
+    source: z.enum(["telegram_whisper", "telegram_manual"]),
+    tagIds: z.array(z.string().uuid()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentMethodIndex === 1 && !data.creditCardId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione um cartão de crédito",
+        path: ["creditCardId"],
+      });
+    }
+  });
 
 export type CreateBotExpenseBody = z.infer<typeof createBotExpenseBodySchema>;
+
+const botExpensePatchFields = expenseBodyFields.partial();
+
+export const updateBotExpenseBodySchema = botExpensePatchFields
+  .extend({
+    chatId: z.string().regex(/^\d+$/),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentMethodIndex === 1 && !data.creditCardId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione um cartão de crédito",
+        path: ["creditCardId"],
+      });
+    }
+  });
+
+export const categorizeBotExpenseBodySchema = categorizeExpenseBodySchema.extend({
+  chatId: z.string().regex(/^\d+$/),
+});
+
+export type UpdateBotExpenseBody = z.infer<typeof updateBotExpenseBodySchema>;
+export type CategorizeBotExpenseBody = z.infer<typeof categorizeBotExpenseBodySchema>;

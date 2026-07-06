@@ -258,6 +258,7 @@ export async function createBotExpense(
         amountCents,
         description: input.description,
         paymentMethod,
+        creditCardId: input.creditCardId ?? null,
         source: input.source,
         idempotencyKey: input.idempotencyKey,
         occurredAt,
@@ -277,10 +278,48 @@ export async function createBotExpense(
       );
     }
 
-    return { expense: inserted, tagIds: input.tagIds };
+    await assignExpenseToStatement(
+      tx,
+      userId,
+      id,
+      paymentMethod,
+      input.creditCardId ?? null,
+      occurredAt,
+    );
+
+    const [withAssignment] = await tx
+      .select()
+      .from(expenses)
+      .where(eq(expenses.id, id))
+      .limit(1);
+
+    return {
+      expense: withAssignment ?? inserted,
+      tagIds: input.tagIds,
+    };
   });
 
   return toExpense(row.expense, row.tagIds);
+}
+
+export async function patchBotExpense(
+  chatId: string,
+  expenseId: string,
+  input: UpdateExpenseBody,
+): Promise<Expense> {
+  const { getAccountByChatId } = await import("../telegram/telegram.service.js");
+  const account = await getAccountByChatId(chatId);
+  return updateExpense(account.userId, expenseId, input);
+}
+
+export async function categorizeBotExpense(
+  chatId: string,
+  expenseId: string,
+  input: CategorizeExpenseBody,
+): Promise<Expense> {
+  const { getAccountByChatId } = await import("../telegram/telegram.service.js");
+  const account = await getAccountByChatId(chatId);
+  return categorizeExpense(account.userId, expenseId, input);
 }
 
 export async function listExpenses(

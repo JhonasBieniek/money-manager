@@ -4,13 +4,14 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
-export const telegramInboundKindValues = ["voice", "audio"] as const;
+export const telegramInboundKindValues = ["voice", "audio", "text"] as const;
 export const telegramInboundStatusValues = [
   "pending",
   "synced",
@@ -49,6 +50,8 @@ export const telegramInboundMessages = pgTable(
     expenseIds: jsonb("expense_ids").$type<string[]>(),
     messageAt: timestamp("message_at", { withTimezone: true }).notNull(),
     syncedAt: timestamp("synced_at", { withTimezone: true }),
+    retryCount: smallint("retry_count").notNull().default(0),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -69,5 +72,6 @@ export const telegramInboundMessages = pgTable(
       t.chatId,
       t.telegramMessageId,
     ),
+    index("telegram_inbound_messages_retry_idx").on(t.status, t.nextRetryAt),
   ],
 );

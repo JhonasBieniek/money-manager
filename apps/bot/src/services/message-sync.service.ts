@@ -2,9 +2,6 @@ import type { Api, Context } from "grammy";
 import type { InternalApiClient } from "../api/internal.client.js";
 import { downloadTelegramFile } from "../utils/telegram-file.js";
 import {
-  replyToChatMessage,
-} from "../utils/telegram-reply.js";
-import {
   parseExpenseUtterances,
   type ExpenseUtteranceItem,
 } from "./parse-expense-utterance.js";
@@ -14,12 +11,14 @@ export type InboundMessageRecord = {
   id: string;
   chatId: string;
   telegramMessageId: string;
-  kind: "voice" | "audio";
+  kind: "voice" | "audio" | "text";
   fileId: string | null;
   transcription: string | null;
   parsedItems: ExpenseUtteranceItem[] | null;
   status: string;
   messageAt: string;
+  syncError?: string | null;
+  retryCount: number;
 };
 
 export function buildBotExpenseRequest(
@@ -35,7 +34,10 @@ export function buildBotExpenseRequest(
     chatId: record.chatId,
     amount: item.amount,
     description: item.description,
-    paymentMethodIndex: BOT_PAYMENT_METHOD_INDEX,
+    paymentMethodIndex:
+      item.paymentMethod === "credit_card"
+        ? 2
+        : utterancePaymentIndex(item.paymentMethod),
     occurredAt: record.messageAt,
     idempotencyKey: `tg:${record.chatId}:${record.telegramMessageId}:${itemIndex}`,
     source: "telegram_whisper",
@@ -48,6 +50,14 @@ export type MessageSyncEnv = {
 };
 
 const BOT_PAYMENT_METHOD_INDEX = 2;
+
+function utterancePaymentIndex(
+  method: ExpenseUtteranceItem["paymentMethod"] | undefined,
+): 0 | 1 | 2 {
+  if (method === "cash") return 0;
+  if (method === "credit_card") return 1;
+  return BOT_PAYMENT_METHOD_INDEX;
+}
 const LOW_LANGUAGE_CONFIDENCE = 0.6;
 
 function resolveAudioFromContext(ctx: Context): {
@@ -160,26 +170,6 @@ async function patchMessage(
   await internal.patchJson(`/v1/internal/telegram/messages/${messageId}`, body);
 }
 
-async function createExpenseFromItem(
-  internal: InternalApiClient,
-  record: Pick<InboundMessageRecord, "chatId" | "telegramMessageId" | "messageAt">,
-  itemIndex: number,
-  item: ExpenseUtteranceItem,
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const payload = buildBotExpenseRequest(record, itemIndex, item);
-  if (!payload) {
-    return { ok: false, error: "Valor ou descrição ausente" };
-  }
-
-  const res = await internal.postJson("/v1/internal/expenses", payload);
-
-  if (!res.ok) {
-    return { ok: false, error: `HTTP ${res.status}` };
-  }
-  const created = (await res.json()) as { id: string };
-  return { ok: true, id: created.id };
-}
-
 type TranscribeFailureStage = "download" | "stt";
 
 type TranscribeOutcome =
@@ -217,7 +207,12 @@ export async function processInboundRecord(
   api: Api,
   record: InboundMessageRecord,
   env: MessageSyncEnv,
-): Promise<{ summary: string; expenseIds: string[]; status: "synced" | "partial" | "failed" }> {
+): Promise<{
+  summary: string;
+  items: ExpenseUtteranceItem[];
+  status: "synced" | "partial" | "failed";
+  syncError: string | null;
+}> {
   let transcription = record.transcription;
   let stt: SttResult | null = null;
 
@@ -230,8 +225,9 @@ export async function processInboundRecord(
       });
       return {
         summary: "Não foi possível processar o áudio.",
-        expenseIds: [],
+        items: [],
         status: "failed",
+        syncError: "Arquivo de áudio ausente",
       };
     }
     if (!transcribeOutcome.ok) {
@@ -249,8 +245,9 @@ export async function processInboundRecord(
       });
       return {
         summary,
-        expenseIds: [],
+        items: [],
         status: "failed",
+        syncError,
       };
     }
     stt = transcribeOutcome.stt;
@@ -265,8 +262,9 @@ export async function processInboundRecord(
     });
     return {
       summary: formatLowConfidenceMessage(),
-      expenseIds: [],
+      items: [],
       status: "failed",
+      syncError: "Confiança de idioma baixa",
     };
   }
 
@@ -283,13 +281,14 @@ export async function processInboundRecord(
     });
     return {
       summary: formatLowConfidenceMessage(),
-      expenseIds: [],
+      items: [],
       status: "failed",
+      syncError: "Nenhum item completo no parse",
     };
   }
 
-  const inserted: Array<{ amount: number; description: string }> = [];
-  const expenseIds: string[] = [];
+  const captured: Array<{ amount: number; description: string }> = [];
+  const items: ExpenseUtteranceItem[] = [];
   const errors: string[] = [];
 
   for (let i = 0; i < parsed.items.length; i++) {
@@ -298,19 +297,14 @@ export async function processInboundRecord(
       errors.push(`Item ${i + 1}: valor ou descrição ausente`);
       continue;
     }
-    const result = await createExpenseFromItem(env.internal, record, i, item);
-    if (result.ok) {
-      expenseIds.push(result.id);
-      if (item.amount !== undefined && item.description) {
-        inserted.push({ amount: item.amount, description: item.description });
-      }
-    } else {
-      errors.push(result.error);
+    items.push(item);
+    if (item.amount !== undefined && item.description) {
+      captured.push({ amount: item.amount, description: item.description });
     }
   }
 
   const status =
-    inserted.length === 0 ? "failed" : errors.length > 0 ? "partial" : "synced";
+    captured.length === 0 ? "failed" : errors.length > 0 ? "partial" : "synced";
 
   await patchMessage(env.internal, record.id, {
     transcription,
@@ -322,19 +316,25 @@ export async function processInboundRecord(
         : incompleteCount > 0
           ? `${incompleteCount} item(ns) incompleto(s)`
           : null,
-    expenseIds,
+    expenseIds: [],
     syncedAt: status === "failed" ? null : new Date().toISOString(),
   });
 
-  let summary = formatInsertSummary(inserted, errors);
-  if (status === "failed" && inserted.length === 0) {
+  let summary = formatInsertSummary(captured, errors);
+  if (status === "failed" && captured.length === 0) {
     summary = formatLowConfidenceMessage();
   }
 
   return {
     summary,
-    expenseIds,
+    items,
     status,
+    syncError:
+      errors.length > 0
+        ? errors.join("; ")
+        : incompleteCount > 0
+          ? `${incompleteCount} item(ns) incompleto(s)`
+          : null,
   };
 }
 
@@ -342,46 +342,11 @@ export async function processVoiceMessage(
   ctx: Context,
   record: InboundMessageRecord,
   env: MessageSyncEnv,
-): Promise<{ summary: string; expenseIds: string[]; status: "synced" | "partial" | "failed" }> {
+): Promise<{
+  summary: string;
+  items: ExpenseUtteranceItem[];
+  status: "synced" | "partial" | "failed";
+  syncError: string | null;
+}> {
   return processInboundRecord(ctx.api, record, env);
-}
-
-export async function runSyncForChat(
-  ctx: Context,
-  env: MessageSyncEnv,
-): Promise<string> {
-  const chatId = ctx.chat?.id;
-  if (chatId === undefined) {
-    return "Não foi possível identificar o chat.";
-  }
-
-  const res = await env.internal.getJson(
-    `/v1/internal/telegram/messages/pending?chatId=${encodeURIComponent(String(chatId))}`,
-  );
-  if (!res.ok) {
-    return "Falha ao buscar mensagens pendentes.";
-  }
-
-  const body = (await res.json()) as { items: InboundMessageRecord[] };
-  const pending = body.items ?? [];
-
-  if (pending.length === 0) {
-    return "Nenhuma mensagem pendente para sincronizar.";
-  }
-
-  let messagesProcessed = 0;
-  let expensesCreated = 0;
-  const errors: string[] = [];
-
-  for (const record of pending) {
-    const result = await processInboundRecord(ctx.api, record, env);
-    messagesProcessed += 1;
-    expensesCreated += result.expenseIds.length;
-    await replyToChatMessage(ctx, record.telegramMessageId, result.summary);
-    if (result.status === "failed") {
-      errors.push(`Msg ${record.telegramMessageId}: falha`);
-    }
-  }
-
-  return formatSyncSummary({ messagesProcessed, expensesCreated, errors });
 }

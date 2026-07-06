@@ -4,6 +4,8 @@ import {
   categorizeExpenseBodySchema,
   createExpenseBodySchema,
   createBotExpenseBodySchema,
+  categorizeBotExpenseBodySchema,
+  updateBotExpenseBodySchema,
   expenseIdParamsSchema,
   listExpensesQuerySchema,
   listUncategorizedQuerySchema,
@@ -45,7 +47,23 @@ export async function remove(req: Request, res: Response): Promise<void> {
 export async function createBot(req: Request, res: Response): Promise<void> {
   const body = createBotExpenseBodySchema.parse(req.body);
   const expense = await expensesService.createBotExpense(body);
-  res.status(201).json({ id: expense.id });
+  res.status(201).json(expense);
+}
+
+export async function patchBot(req: Request, res: Response): Promise<void> {
+  const { id } = expenseIdParamsSchema.parse(req.params);
+  const body = updateBotExpenseBodySchema.parse(req.body);
+  const { chatId, ...patch } = body;
+  const expense = await expensesService.patchBotExpense(chatId, id, patch);
+  res.status(200).json(expense);
+}
+
+export async function categorizeBot(req: Request, res: Response): Promise<void> {
+  const { id } = expenseIdParamsSchema.parse(req.params);
+  const body = categorizeBotExpenseBodySchema.parse(req.body);
+  const { chatId, ...input } = body;
+  const expense = await expensesService.categorizeBotExpense(chatId, id, input);
+  res.status(200).json(expense);
 }
 
 export async function uncategorizedCount(

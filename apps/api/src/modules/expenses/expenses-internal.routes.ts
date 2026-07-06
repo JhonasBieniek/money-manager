@@ -6,3 +6,5 @@ export const expensesInternalRoutes = Router();
 
 expensesInternalRoutes.use(requireInternalApiKey);
 expensesInternalRoutes.post("/", expensesController.createBot);
+expensesInternalRoutes.patch("/:id", expensesController.patchBot);
+expensesInternalRoutes.patch("/:id/categorize", expensesController.categorizeBot);

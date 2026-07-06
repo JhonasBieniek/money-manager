@@ -4,6 +4,7 @@ import {
   patchInboundMessageSchema,
   pendingMessagesQuerySchema,
   recordInboundMessageSchema,
+  retryEligibleQuerySchema,
 } from "./telegram-messages.schema.js";
 import * as messagesService from "./telegram-messages.service.js";
 
@@ -30,4 +31,13 @@ export async function messagesStatus(req: Request, res: Response): Promise<void>
   const { chatId } = pendingMessagesQuerySchema.parse(req.query);
   const result = await messagesService.getInboundMessagesStatus(chatId);
   res.status(200).json(result);
+}
+
+export async function listRetryEligible(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const query = retryEligibleQuerySchema.parse(req.query);
+  const items = await messagesService.listRetryEligibleInboundMessages(query);
+  res.status(200).json({ items });
 }

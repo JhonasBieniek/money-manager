@@ -4,7 +4,7 @@ import {
   type ParsedExpenseItem,
 } from "@money-manager/db";
 import { newId } from "@money-manager/utils";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { NotFoundError } from "../../shared/errors/app-error.js";
 import type {
   PatchInboundMessageBody,
@@ -24,7 +24,7 @@ export type InboundMessageDto = {
   chatId: string;
   telegramMessageId: string;
   telegramUpdateId: string;
-  kind: "voice" | "audio";
+  kind: "voice" | "audio" | "text";
   fileId: string | null;
   transcription: string | null;
   parsedItems: ParsedExpenseItem[] | null;
@@ -33,6 +33,8 @@ export type InboundMessageDto = {
   expenseIds: string[] | null;
   messageAt: Date;
   syncedAt: Date | null;
+  retryCount: number;
+  nextRetryAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -54,6 +56,8 @@ function mapRow(
     expenseIds: row.expenseIds ?? null,
     messageAt: row.messageAt,
     syncedAt: row.syncedAt ?? null,
+    retryCount: row.retryCount,
+    nextRetryAt: row.nextRetryAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -93,6 +97,7 @@ export async function recordInboundMessage(
       telegramUpdateId,
       kind: input.kind,
       fileId: input.fileId ?? null,
+      transcription: input.transcription ?? null,
       status: "pending",
       messageAt,
       createdAt: now,
@@ -142,6 +147,12 @@ export async function patchInboundMessage(
   }
   if (input.syncedAt !== undefined) {
     values.syncedAt = input.syncedAt ? new Date(input.syncedAt) : null;
+  }
+  if (input.retryCount !== undefined) {
+    values.retryCount = input.retryCount;
+  }
+  if (input.nextRetryAt !== undefined) {
+    values.nextRetryAt = input.nextRetryAt ? new Date(input.nextRetryAt) : null;
   }
 
   const [row] = await getDb()
@@ -217,4 +228,46 @@ export async function getInboundMessagesStatus(chatId: string): Promise<{
       ? String(lastSynced.telegramMessageId)
       : null,
   };
+}
+
+const RECOVERABLE_SYNC_ERRORS = new Set([
+  "Falha no download do Telegram",
+  "Falha na transcrição STT",
+]);
+
+export async function listRetryEligibleInboundMessages(input: {
+  maxAgeHours: number;
+  limit: number;
+}): Promise<InboundMessageDto[]> {
+  const minMessageAt = new Date(Date.now() - input.maxAgeHours * 60 * 60 * 1000);
+  const now = new Date();
+
+  const rows = await getDb()
+    .select()
+    .from(telegramInboundMessages)
+    .where(
+      and(
+        gte(telegramInboundMessages.messageAt, minMessageAt),
+        inArray(telegramInboundMessages.status, ["pending", "failed"]),
+        sql`${telegramInboundMessages.retryCount} < 3`,
+        or(
+          sql`${telegramInboundMessages.nextRetryAt} IS NULL`,
+          lte(telegramInboundMessages.nextRetryAt, now),
+        ),
+      ),
+    )
+    .orderBy(asc(telegramInboundMessages.messageAt))
+    .limit(input.limit);
+
+  return rows
+    .filter((row) => {
+      if (row.status === "pending" && !row.transcription) {
+        return true;
+      }
+      if (!row.syncError) {
+        return false;
+      }
+      return RECOVERABLE_SYNC_ERRORS.has(row.syncError);
+    })
+    .map(mapRow);
 }
