@@ -5,12 +5,20 @@ import { cn } from "../lib/cn";
 import {
   MONTH_OPTIONS,
   buildYearOptions,
+  formatFilterPeriodLabel,
   getCurrentMonthYear,
 } from "../lib/transaction-list-filters";
 import { FilterSelect } from "../components/ui/filter-select";
 import { CreditCardFormModal } from "../components/features/credit-cards/credit-card-form-modal";
 import { StatementCard } from "../components/features/credit-cards/statement-card";
 import { Calendar as CalendarIcon, CreditCard as CreditCardIcon, Plus } from "lucide-react";
+
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
 
 export function CreditCardsPage() {
   const defaults = getCurrentMonthYear();
@@ -40,6 +48,42 @@ export function CreditCardsPage() {
       })),
     [],
   );
+
+  const accumulatedTotalCents = useMemo(
+    () =>
+      items.reduce((sum, item) => {
+        if (!item.currentStatement) {
+          return sum;
+        }
+        const effectiveTotal =
+          item.currentStatement.adjustedTotalCents ??
+          item.currentStatement.calculatedTotalCents;
+        return sum + effectiveTotal;
+      }, 0),
+    [items],
+  );
+
+  const distinctStatementCycles = useMemo(() => {
+    const cycles = new Set<string>();
+    items.forEach((item) => {
+      if (item.currentStatement) {
+        cycles.add(`${item.currentStatement.cycleYear}-${item.currentStatement.cycleMonth}`);
+      }
+    });
+    return cycles;
+  }, [items]);
+
+  const hasAnyCurrentStatement = useMemo(
+    () => items.some((item) => item.currentStatement),
+    [items],
+  );
+
+  const periodLabel = formatFilterPeriodLabel(month, year);
+
+  const bannerPeriodLabel =
+    periodFilterActive || distinctStatementCycles.size <= 1
+      ? periodLabel
+      : "Faturas atuais";
 
   const loadStatements = useCallback(async () => {
     setLoading(true);
@@ -145,6 +189,25 @@ export function CreditCardsPage() {
           className="max-w-[5.5rem]"
         />
       </div>
+
+      {!loading && !error && hasAnyCurrentStatement ? (
+        <div className="glass flex items-center justify-between rounded-2xl p-5 sm:rounded-3xl sm:p-6">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Total de faturas · {bannerPeriodLabel}
+            </p>
+            <p
+              className="mt-1 text-2xl font-bold text-white"
+              data-testid="cards-accumulated-total"
+            >
+              {formatCurrency(accumulatedTotalCents)}
+            </p>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+            <CreditCardIcon className="h-5 w-5" />
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">

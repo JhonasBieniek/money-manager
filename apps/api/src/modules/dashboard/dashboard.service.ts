@@ -1,11 +1,12 @@
-import { expenses, getDb, incomes } from "@money-manager/db";
+import { creditCardStatements, expenses, getDb, incomes } from "@money-manager/db";
 import type {
   DashboardHistoryMonth,
   DashboardSummary,
 } from "@money-manager/types";
 import { GOAL_CATEGORY_LABELS } from "@money-manager/types";
-import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import * as goalsService from "../goals/goals.service.js";
+import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 
 function monthYearRange(
   year: number,
@@ -41,57 +42,79 @@ export async function getDashboardSummary(
   year: number,
   month: number,
 ): Promise<DashboardSummary> {
+  await syncUserDebtsForMonth(userId, year, month);
+
   const db = getDb();
   const { start, end } = monthYearRange(year, month);
 
-  const [incomesResult, expensesResult, categoryRows, goalsUsageRows] =
-    await Promise.all([
-      db
-        .select({
-          total: sql<number>`COALESCE(SUM(${incomes.amountCents}), 0)::int`,
-        })
-        .from(incomes)
-        .where(
-          and(
-            eq(incomes.userId, userId),
-            isNull(incomes.deletedAt),
-            gte(incomes.occurredAt, start),
-            lte(incomes.occurredAt, end),
-          ),
+  const [
+    incomesResult,
+    expensesResult,
+    cardStatementsResult,
+    categoryRows,
+    goalsUsageRows,
+  ] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`COALESCE(SUM(${incomes.amountCents}), 0)::int`,
+      })
+      .from(incomes)
+      .where(
+        and(
+          eq(incomes.userId, userId),
+          isNull(incomes.deletedAt),
+          gte(incomes.occurredAt, start),
+          lte(incomes.occurredAt, end),
         ),
-      db
-        .select({
-          total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
-        })
-        .from(expenses)
-        .where(
-          and(
-            eq(expenses.userId, userId),
-            isNull(expenses.deletedAt),
-            gte(expenses.occurredAt, start),
-            lte(expenses.occurredAt, end),
-          ),
+      ),
+    db
+      .select({
+        total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          isNull(expenses.deletedAt),
+          isNull(expenses.creditCardStatementId),
+          gte(expenses.occurredAt, start),
+          lte(expenses.occurredAt, end),
         ),
-      db
-        .select({
-          category: expenses.goalCategory,
-          total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
-        })
-        .from(expenses)
-        .where(
-          and(
-            eq(expenses.userId, userId),
-            isNull(expenses.deletedAt),
-            gte(expenses.occurredAt, start),
-            lte(expenses.occurredAt, end),
-          ),
-        )
-        .groupBy(expenses.goalCategory),
-      goalsService.getGoalUsage(userId, year, month),
-    ]);
+      ),
+    db
+      .select({
+        total: sql<number>`COALESCE(SUM(COALESCE(${creditCardStatements.adjustedTotalCents}, ${creditCardStatements.calculatedTotalCents})), 0)::int`,
+      })
+      .from(creditCardStatements)
+      .where(
+        and(
+          eq(creditCardStatements.userId, userId),
+          eq(creditCardStatements.cycleYear, year),
+          eq(creditCardStatements.cycleMonth, month),
+        ),
+      ),
+    db
+      .select({
+        category: expenses.goalCategory,
+        total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          isNull(expenses.deletedAt),
+          gte(expenses.occurredAt, start),
+          lte(expenses.occurredAt, end),
+        ),
+      )
+      .groupBy(expenses.goalCategory),
+    goalsService.getGoalUsage(userId, year, month),
+  ]);
 
   const totalIncomes = incomesResult[0]?.total ?? 0;
-  const totalExpenses = expensesResult[0]?.total ?? 0;
+  const nonCreditCardExpenses = expensesResult[0]?.total ?? 0;
+  const creditCardBillsTotal = cardStatementsResult[0]?.total ?? 0;
+  const totalExpenses = nonCreditCardExpenses + creditCardBillsTotal;
 
   const expensesByCategory = categoryRows
     .filter((row) => row.category !== null && (row.total ?? 0) > 0)
@@ -136,7 +159,7 @@ export async function getDashboardHistory(
 
   const monthKey = (year: number, monthNum: number) => `${year}-${monthNum}`;
 
-  const [incomeRows, expenseRows] = await Promise.all([
+  const [incomeRows, expenseRows, cardStatementRows] = await Promise.all([
     db
       .select({
         year: sql<number>`EXTRACT(YEAR FROM ${incomes.occurredAt})::int`,
@@ -167,6 +190,7 @@ export async function getDashboardHistory(
         and(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
+          isNull(expenses.creditCardStatementId),
           gte(expenses.occurredAt, start),
           lte(expenses.occurredAt, end),
         ),
@@ -175,19 +199,45 @@ export async function getDashboardHistory(
         sql`EXTRACT(YEAR FROM ${expenses.occurredAt})`,
         sql`EXTRACT(MONTH FROM ${expenses.occurredAt})`,
       ),
+    db
+      .select({
+        year: creditCardStatements.cycleYear,
+        monthNum: creditCardStatements.cycleMonth,
+        total: sql<number>`COALESCE(SUM(COALESCE(${creditCardStatements.adjustedTotalCents}, ${creditCardStatements.calculatedTotalCents})), 0)::int`,
+      })
+      .from(creditCardStatements)
+      .where(
+        and(
+          eq(creditCardStatements.userId, userId),
+          or(
+            ...slots.map((slot) =>
+              and(
+                eq(creditCardStatements.cycleYear, slot.year),
+                eq(creditCardStatements.cycleMonth, slot.monthNum),
+              ),
+            ),
+          ),
+        ),
+      )
+      .groupBy(creditCardStatements.cycleYear, creditCardStatements.cycleMonth),
   ]);
 
   const incomesByMonth = new Map(
     incomeRows.map((row) => [monthKey(row.year, row.monthNum), row.total ?? 0]),
   );
-  const expensesByMonth = new Map(
+  const nonCreditCardExpensesByMonth = new Map(
     expenseRows.map((row) => [monthKey(row.year, row.monthNum), row.total ?? 0]),
+  );
+  const creditCardBillsByMonth = new Map(
+    cardStatementRows.map((row) => [monthKey(row.year, row.monthNum), row.total ?? 0]),
   );
 
   return slots.map((slot) => {
     const key = monthKey(slot.year, slot.monthNum);
     const incomesTotal = incomesByMonth.get(key) ?? 0;
-    const expensesTotal = expensesByMonth.get(key) ?? 0;
+    const expensesTotal =
+      (nonCreditCardExpensesByMonth.get(key) ?? 0) +
+      (creditCardBillsByMonth.get(key) ?? 0);
 
     return {
       month: slot.month,
