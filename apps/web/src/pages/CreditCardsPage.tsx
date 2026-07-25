@@ -63,7 +63,27 @@ export function CreditCardsPage() {
     [items],
   );
 
+  const distinctStatementCycles = useMemo(() => {
+    const cycles = new Set<string>();
+    items.forEach((item) => {
+      if (item.currentStatement) {
+        cycles.add(`${item.currentStatement.cycleYear}-${item.currentStatement.cycleMonth}`);
+      }
+    });
+    return cycles;
+  }, [items]);
+
+  const hasAnyCurrentStatement = useMemo(
+    () => items.some((item) => item.currentStatement),
+    [items],
+  );
+
   const periodLabel = formatFilterPeriodLabel(month, year);
+
+  const bannerPeriodLabel =
+    periodFilterActive || distinctStatementCycles.size <= 1
+      ? periodLabel
+      : "Faturas atuais";
 
   const loadStatements = useCallback(async () => {
     setLoading(true);
@@ -170,11 +190,11 @@ export function CreditCardsPage() {
         />
       </div>
 
-      {!loading && items.length > 0 ? (
+      {!loading && hasAnyCurrentStatement ? (
         <div className="glass flex items-center justify-between rounded-2xl p-5 sm:rounded-3xl sm:p-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              Total de faturas · {periodLabel}
+              Total de faturas · {bannerPeriodLabel}
             </p>
             <p
               className="mt-1 text-2xl font-bold text-white"

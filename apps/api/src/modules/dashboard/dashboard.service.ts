@@ -4,7 +4,7 @@ import type {
   DashboardSummary,
 } from "@money-manager/types";
 import { GOAL_CATEGORY_LABELS } from "@money-manager/types";
-import { and, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import * as goalsService from "../goals/goals.service.js";
 import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 
@@ -76,7 +76,7 @@ export async function getDashboardSummary(
         and(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
-          ne(expenses.paymentMethod, "credit_card"),
+          isNull(expenses.creditCardStatementId),
           gte(expenses.occurredAt, start),
           lte(expenses.occurredAt, end),
         ),
@@ -190,7 +190,7 @@ export async function getDashboardHistory(
         and(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
-          ne(expenses.paymentMethod, "credit_card"),
+          isNull(expenses.creditCardStatementId),
           gte(expenses.occurredAt, start),
           lte(expenses.occurredAt, end),
         ),

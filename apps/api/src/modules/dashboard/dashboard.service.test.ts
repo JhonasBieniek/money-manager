@@ -19,6 +19,7 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     amountCents: "amount_cents",
     goalCategory: "goal_category",
     paymentMethod: "payment_method",
+    creditCardStatementId: "credit_card_statement_id",
     deletedAt: "deleted_at",
     occurredAt: "occurred_at",
   },
@@ -100,6 +101,27 @@ describe("getDashboardSummary", () => {
     expect(summary.goalsUsage).toHaveLength(1);
     expect(summary.goalsUsage[0]?.spent).toBe(25_000);
     expect(getGoalUsageMock).toHaveBeenCalledWith("user-1", 2025, 6);
+    expect(dbMock.select).toHaveBeenCalledTimes(4);
+  });
+
+  it("usa apenas o total não-cartão quando não há faturas de cartão no período", async () => {
+    const responses = [
+      [{ total: 500_000 }], // incomes
+      [{ total: 120_000 }], // expenses (não-cartão)
+      [{ total: 0 }], // faturas do mês (creditCardStatements) — nenhuma fatura
+      [{ category: "prazeres", total: 120_000 }], // expensesByCategory
+    ];
+    let callIndex = 0;
+    dbMock.select.mockImplementation(() => {
+      const response = responses[callIndex++] ?? [];
+      return chainWhere(response, callIndex === 4);
+    });
+
+    const summary = await dashboardService.getDashboardSummary("user-1", 2025, 6);
+
+    expect(summary.totalIncomes).toBe(500_000);
+    expect(summary.totalExpenses).toBe(120_000);
+    expect(summary.balance).toBe(380_000);
     expect(dbMock.select).toHaveBeenCalledTimes(4);
   });
 });
