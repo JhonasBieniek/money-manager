@@ -190,7 +190,7 @@ export function CreditCardsPage() {
         />
       </div>
 
-      {!loading && hasAnyCurrentStatement ? (
+      {!loading && !error && hasAnyCurrentStatement ? (
         <div className="glass flex items-center justify-between rounded-2xl p-5 sm:rounded-3xl sm:p-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
