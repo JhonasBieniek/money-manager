@@ -74,6 +74,9 @@ jobs:
         id: diff
         run: |
           DEPLOY_SHA="${{ needs.meta.outputs.deploy_sha }}"
+          # paths-filter fetches `base` as a refspec, so it must be a real SHA —
+          # "${DEPLOY_SHA}~1" is only valid rev-parse syntax, not a fetchable ref.
+          PARENT_SHA="$(git rev-parse "${DEPLOY_SHA}~1" 2>/dev/null || echo "$DEPLOY_SHA")"
 
           if [[ -f deploy-range/before && -f deploy-range/after ]]; then
             BEFORE="$(tr -d '[:space:]' < deploy-range/before)"
@@ -82,7 +85,7 @@ jobs:
 
             # GitHub sends 40 zeroes for before on the first push or a new branch.
             if [[ "$BEFORE" =~ ^0+$ ]]; then
-              echo "base=${DEPLOY_SHA}~1" >> "$GITHUB_OUTPUT"
+              echo "base=${PARENT_SHA}" >> "$GITHUB_OUTPUT"
               echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
               echo "strategy=parent-fallback (zero before)" >> "$GITHUB_OUTPUT"
             else
@@ -92,7 +95,7 @@ jobs:
             fi
           else
             # Fallback when artifact is missing (first deploy after this change) or workflow_dispatch.
-            echo "base=${DEPLOY_SHA}~1" >> "$GITHUB_OUTPUT"
+            echo "base=${PARENT_SHA}" >> "$GITHUB_OUTPUT"
             echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
             echo "strategy=parent-fallback (no artifact)" >> "$GITHUB_OUTPUT"
           fi
