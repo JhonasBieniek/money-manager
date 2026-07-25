@@ -18,13 +18,25 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     userId: "user_id",
     amountCents: "amount_cents",
     goalCategory: "goal_category",
+    paymentMethod: "payment_method",
     deletedAt: "deleted_at",
     occurredAt: "occurred_at",
+  },
+  creditCardStatements: {
+    userId: "user_id",
+    cycleYear: "cycle_year",
+    cycleMonth: "cycle_month",
+    calculatedTotalCents: "calculated_total_cents",
+    adjustedTotalCents: "adjusted_total_cents",
   },
 }));
 
 jest.unstable_mockModule("../goals/goals.service.js", () => ({
   getGoalUsage: getGoalUsageMock,
+}));
+
+jest.unstable_mockModule("../debts/debts.service.js", () => ({
+  syncUserDebtsForMonth: jest.fn().mockResolvedValue(undefined),
 }));
 
 const dashboardService = await import("./dashboard.service.js");
@@ -60,19 +72,20 @@ describe("getDashboardSummary", () => {
     ]);
   });
 
-  it("agrega totais, expensesByCategory e goalsUsage", async () => {
+  it("agrega totais, expensesByCategory e goalsUsage usando o total da fatura para cartão", async () => {
     const responses = [
-      [{ total: 1_000_000 }],
-      [{ total: 400_000 }],
+      [{ total: 1_000_000 }], // incomes
+      [{ total: 250_000 }], // expenses (não-cartão)
+      [{ total: 150_000 }], // faturas do mês (creditCardStatements)
       [
         { category: "prazeres", total: 250_000 },
         { category: "custos-fixos", total: 150_000 },
-      ],
+      ], // expensesByCategory (inclui cartão, sem mudança)
     ];
     let callIndex = 0;
     dbMock.select.mockImplementation(() => {
       const response = responses[callIndex++] ?? [];
-      return chainWhere(response, callIndex === 3);
+      return chainWhere(response, callIndex === 4);
     });
 
     const summary = await dashboardService.getDashboardSummary("user-1", 2025, 6);
@@ -87,6 +100,7 @@ describe("getDashboardSummary", () => {
     expect(summary.goalsUsage).toHaveLength(1);
     expect(summary.goalsUsage[0]?.spent).toBe(25_000);
     expect(getGoalUsageMock).toHaveBeenCalledWith("user-1", 2025, 6);
+    expect(dbMock.select).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -101,7 +115,7 @@ describe("getDashboardHistory", () => {
     jest.useRealTimers();
   });
 
-  it("retorna meses com totais agregados em batch", async () => {
+  it("retorna meses com totais agregados, somando faturas de cartão por ciclo", async () => {
     const incomeRows = [
       { year: 2025, monthNum: 4, total: 500_000 },
       { year: 2025, monthNum: 5, total: 800_000 },
@@ -110,12 +124,18 @@ describe("getDashboardHistory", () => {
     const expenseRows = [
       { year: 2025, monthNum: 4, total: 300_000 },
       { year: 2025, monthNum: 5, total: 600_000 },
-      { year: 2025, monthNum: 6, total: 400_000 },
+      { year: 2025, monthNum: 6, total: 100_000 },
     ];
+    const cardStatementRows = [{ year: 2025, monthNum: 6, total: 70_000 }];
 
     let callIndex = 0;
     dbMock.select.mockImplementation(() => {
-      const response = callIndex === 0 ? incomeRows : expenseRows;
+      const response =
+        callIndex === 0
+          ? incomeRows
+          : callIndex === 1
+            ? expenseRows
+            : cardStatementRows;
       callIndex++;
       return {
         from: () => ({
@@ -135,12 +155,18 @@ describe("getDashboardHistory", () => {
       expenses: 300_000,
       balance: 200_000,
     });
+    expect(history[1]).toMatchObject({
+      month: "2025-05",
+      incomes: 800_000,
+      expenses: 600_000,
+      balance: 200_000,
+    });
     expect(history[2]).toMatchObject({
       month: "2025-06",
       incomes: 1_000_000,
-      expenses: 400_000,
-      balance: 600_000,
+      expenses: 170_000,
+      balance: 830_000,
     });
-    expect(dbMock.select).toHaveBeenCalledTimes(2);
+    expect(dbMock.select).toHaveBeenCalledTimes(3);
   });
 });
