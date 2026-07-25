@@ -36,10 +36,6 @@ jest.unstable_mockModule("../goals/goals.service.js", () => ({
   getGoalUsage: getGoalUsageMock,
 }));
 
-jest.unstable_mockModule("../debts/debts.service.js", () => ({
-  syncUserDebtsForMonth: jest.fn().mockResolvedValue(undefined),
-}));
-
 const dashboardService = await import("./dashboard.service.js");
 
 function chainWhere<T>(value: T, grouped = false) {

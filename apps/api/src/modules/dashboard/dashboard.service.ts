@@ -6,7 +6,6 @@ import type {
 import { GOAL_CATEGORY_LABELS } from "@money-manager/types";
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import * as goalsService from "../goals/goals.service.js";
-import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 
 function monthYearRange(
   year: number,
@@ -42,8 +41,6 @@ export async function getDashboardSummary(
   year: number,
   month: number,
 ): Promise<DashboardSummary> {
-  await syncUserDebtsForMonth(userId, year, month);
-
   const db = getDb();
   const { start, end } = monthYearRange(year, month);
 
