@@ -29,7 +29,7 @@ jest.unstable_mockModule("@money-manager/utils", () => ({
 
 jest.unstable_mockModule("../../lib/jwt.js", () => ({
   signAccessToken: jest.fn(async () => "jwt.access"),
-  ACCESS_TOKEN_TTL_SEC: 900,
+  ACCESS_TOKEN_TTL_SEC: 15 * 24 * 60 * 60,
 }));
 
 const authService = await import("./auth.service.js");
@@ -113,7 +113,7 @@ describe("loginUser", () => {
     expect(result.body).toEqual({
       accessToken: "jwt.access",
       tokenType: "Bearer",
-      expiresInSeconds: 900,
+      expiresInSeconds: 15 * 24 * 60 * 60,
     });
     expect(result.refreshTokenPlain.length).toBeGreaterThan(20);
   });

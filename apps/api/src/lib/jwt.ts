@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { getJwtAccessSecret } from "../config/secrets.js";
 
-export const ACCESS_TOKEN_TTL_SEC = 900;
+export const ACCESS_TOKEN_TTL_SEC = 15 * 24 * 60 * 60;
 
 const encoder = new TextEncoder();
 

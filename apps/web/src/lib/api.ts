@@ -70,15 +70,15 @@ export function getStoredAccessToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
 export function setStoredAccessToken(token: string): void {
-  sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
 }
 
 export function clearStoredAccessToken(): void {
-  sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
 async function performFetch(

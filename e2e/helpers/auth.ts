@@ -58,9 +58,9 @@ export async function loginUser(page: Page, email: string, password: string) {
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
-export async function expectAccessTokenInSession(page: Page) {
+export async function expectAccessTokenStored(page: Page) {
   const token = await page.evaluate(
-    (key) => sessionStorage.getItem(key),
+    (key) => localStorage.getItem(key),
     ACCESS_TOKEN_STORAGE_KEY,
   );
   expect(token).toBeTruthy();
@@ -79,7 +79,7 @@ export async function logoutUser(page: Page) {
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login/);
   const token = await page.evaluate(
-    (key) => sessionStorage.getItem(key),
+    (key) => localStorage.getItem(key),
     ACCESS_TOKEN_STORAGE_KEY,
   );
   expect(token).toBeNull();

@@ -23,7 +23,14 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route
+          path="/"
+          element={
+            <GuestGuard>
+              <LandingPage />
+            </GuestGuard>
+          }
+        />
         <Route
           path="/login"
           element={

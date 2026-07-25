@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 import {
   ACCESS_TOKEN_STORAGE_KEY,
-  expectAccessTokenInSession,
+  expectAccessTokenStored,
   expectRefreshCookie,
   loginUser,
   logoutUser,
@@ -10,13 +10,13 @@ import {
 } from "./helpers/auth";
 
 test.describe("autenticação", () => {
-  test("cadastra conta e persiste access token no sessionStorage", async ({
+  test("cadastra conta e persiste access token no localStorage", async ({
     page,
     testUser,
   }) => {
     await skipOnboarding(page);
     await registerUser(page, testUser.email, testUser.password);
-    await expectAccessTokenInSession(page);
+    await expectAccessTokenStored(page);
     await expectRefreshCookie(page);
   });
 
@@ -29,7 +29,7 @@ test.describe("autenticação", () => {
     await logoutUser(page);
 
     await loginUser(page, testUser.email, testUser.password);
-    await expectAccessTokenInSession(page);
+    await expectAccessTokenStored(page);
     await expectRefreshCookie(page);
     await expect(page.getByRole("heading", { name: "Bem-vindo de volta!" })).toBeVisible();
   });
@@ -48,7 +48,7 @@ test.describe("autenticação", () => {
     await expect(page.getByRole("alert")).toContainText(/incorreto|entrar/i);
 
     const token = await page.evaluate(
-      (key) => sessionStorage.getItem(key),
+      (key) => localStorage.getItem(key),
       ACCESS_TOKEN_STORAGE_KEY,
     );
     expect(token).toBeNull();
