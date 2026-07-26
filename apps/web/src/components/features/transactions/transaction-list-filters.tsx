@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { SearchableMultiSelect } from "../../ui/searchable-select";
 import { FilterSelect } from "../../ui/filter-select";
 import { apiFetch } from "../../../lib/api";
+import { useSelectedPeriod } from "../../../contexts/period-context";
 import {
   EMPTY_TRANSACTION_LIST_FILTERS,
   MONTH_OPTIONS,
@@ -35,9 +36,14 @@ export function TransactionListFiltersBar({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { month: sharedMonth, year: sharedYear, setPeriod, resetPeriod } =
+    useSelectedPeriod();
 
   const [filters, setFilters] = useState<TransactionListFilters>(() =>
-    parseFiltersFromSearchParams(searchParams),
+    parseFiltersFromSearchParams(searchParams, {
+      month: sharedMonth,
+      year: sharedYear,
+    }),
   );
   const [tags, setTags] = useState<TagOption[]>([]);
 
@@ -111,6 +117,7 @@ export function TransactionListFiltersBar({
 
   function resetFilters() {
     setFilters(EMPTY_TRANSACTION_LIST_FILTERS);
+    resetPeriod();
   }
 
   const active = hasActiveFilters(filters);
@@ -133,14 +140,20 @@ export function TransactionListFiltersBar({
           <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
           <FilterSelect
             value={filters.month}
-            onChange={(month) => updateFilters({ month })}
+            onChange={(month) => {
+              updateFilters({ month });
+              setPeriod(month, filters.year);
+            }}
             options={monthOptions}
             ariaLabel="Mês"
           />
           <span className="text-zinc-700">/</span>
           <FilterSelect
             value={filters.year}
-            onChange={(year) => updateFilters({ year })}
+            onChange={(year) => {
+              updateFilters({ year });
+              setPeriod(filters.month, year);
+            }}
             options={yearOptions}
             ariaLabel="Ano"
             className="max-w-[5.5rem]"

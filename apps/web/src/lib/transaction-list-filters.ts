@@ -73,8 +73,8 @@ export function filtersToSearchParams(
 
 export function parseFiltersFromSearchParams(
   params: URLSearchParams,
+  fallbackPeriod: { month: string; year: string } = getCurrentMonthYear(),
 ): TransactionListFilters {
-  const defaults = getDefaultTransactionListFilters();
   const tagIdsRaw = params.get("tagIds");
   const month = params.get("month");
   const year = params.get("year");
@@ -84,8 +84,8 @@ export function parseFiltersFromSearchParams(
     tagIds: tagIdsRaw
       ? tagIdsRaw.split(",").map((id) => id.trim()).filter(Boolean)
       : [],
-    month: month ?? defaults.month,
-    year: year ?? defaults.year,
+    month: month ?? fallbackPeriod.month,
+    year: year ?? fallbackPeriod.year,
   };
 }
 

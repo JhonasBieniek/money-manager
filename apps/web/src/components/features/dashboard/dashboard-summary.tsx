@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { FilterSelect } from "../../ui/filter-select";
+import { useSelectedPeriod } from "../../../contexts/period-context";
 import {
   MONTH_OPTIONS,
   buildYearOptions,
@@ -69,9 +70,7 @@ function usageBarColor(usagePercent: number) {
 }
 
 export function DashboardSummary() {
-  const defaultPeriod = getCurrentMonthYear();
-  const [month, setMonth] = useState(defaultPeriod.month);
-  const [year, setYear] = useState(defaultPeriod.year);
+  const { month, year, setPeriod, resetPeriod } = useSelectedPeriod();
   const [summary, setSummary] = useState<DashboardSummary>({
     totalIncomes: 0,
     totalExpenses: 0,
@@ -124,12 +123,6 @@ export function DashboardSummary() {
     void load();
   }, [month, year]);
 
-  function resetPeriod() {
-    const current = getCurrentMonthYear();
-    setMonth(current.month);
-    setYear(current.year);
-  }
-
   const periodLabel = formatFilterPeriodLabel(month, year);
 
   if (loading) {
@@ -170,14 +163,14 @@ export function DashboardSummary() {
             <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
             <FilterSelect
               value={month}
-              onChange={setMonth}
+              onChange={(nextMonth) => setPeriod(nextMonth, year)}
               options={monthOptions}
               ariaLabel="Mês"
             />
             <span className="text-zinc-700">/</span>
             <FilterSelect
               value={year}
-              onChange={setYear}
+              onChange={(nextYear) => setPeriod(month, nextYear)}
               options={yearOptions}
               ariaLabel="Ano"
               className="max-w-[5.5rem]"

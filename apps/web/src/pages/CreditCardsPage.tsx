@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CreditCard, CreditCardWithCurrentStatement } from "@money-manager/types";
 import { apiFetch } from "../lib/api";
 import { cn } from "../lib/cn";
+import { useSelectedPeriod } from "../contexts/period-context";
 import {
   MONTH_OPTIONS,
   buildYearOptions,
   formatFilterPeriodLabel,
-  getCurrentMonthYear,
 } from "../lib/transaction-list-filters";
 import { FilterSelect } from "../components/ui/filter-select";
 import { CreditCardFormModal } from "../components/features/credit-cards/credit-card-form-modal";
@@ -21,10 +21,16 @@ function formatCurrency(cents: number) {
 }
 
 export function CreditCardsPage() {
-  const defaults = getCurrentMonthYear();
-  const [month, setMonth] = useState(defaults.month);
-  const [year, setYear] = useState(defaults.year);
-  const [periodFilterActive, setPeriodFilterActive] = useState(false);
+  const {
+    month: sharedMonth,
+    year: sharedYear,
+    periodTouched,
+    setPeriod,
+  } = useSelectedPeriod();
+  const [autoMonth, setAutoMonth] = useState(sharedMonth);
+  const [autoYear, setAutoYear] = useState(sharedYear);
+  const month = periodTouched ? sharedMonth : autoMonth;
+  const year = periodTouched ? sharedYear : autoYear;
   const [items, setItems] = useState<CreditCardWithCurrentStatement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +87,7 @@ export function CreditCardsPage() {
   const periodLabel = formatFilterPeriodLabel(month, year);
 
   const bannerPeriodLabel =
-    periodFilterActive || distinctStatementCycles.size <= 1
+    periodTouched || distinctStatementCycles.size <= 1
       ? periodLabel
       : "Faturas atuais";
 
@@ -89,7 +95,7 @@ export function CreditCardsPage() {
     setLoading(true);
     setError(null);
     try {
-      const path = periodFilterActive
+      const path = periodTouched
         ? `/v1/credit-cards/statements/current?month=${month}&year=${year}`
         : "/v1/credit-cards/statements/current";
       const res = await apiFetch(path);
@@ -101,10 +107,10 @@ export function CreditCardsPage() {
     } finally {
       setLoading(false);
     }
-  }, [month, year, periodFilterActive]);
+  }, [month, year, periodTouched]);
 
   useEffect(() => {
-    if (periodFilterActive || items.length === 0) {
+    if (periodTouched || items.length === 0) {
       return;
     }
 
@@ -115,11 +121,11 @@ export function CreditCardsPage() {
 
     const cycleMonth = String(statement.cycleMonth);
     const cycleYear = String(statement.cycleYear);
-    if (month !== cycleMonth || year !== cycleYear) {
-      setMonth(cycleMonth);
-      setYear(cycleYear);
+    if (autoMonth !== cycleMonth || autoYear !== cycleYear) {
+      setAutoMonth(cycleMonth);
+      setAutoYear(cycleYear);
     }
-  }, [items, periodFilterActive, month, year]);
+  }, [items, periodTouched, autoMonth, autoYear]);
 
   useEffect(() => {
     void loadStatements();
@@ -170,20 +176,14 @@ export function CreditCardsPage() {
         <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
         <FilterSelect
           value={month}
-          onChange={(value) => {
-            setPeriodFilterActive(true);
-            setMonth(value);
-          }}
+          onChange={(value) => setPeriod(value, year)}
           options={monthOptions}
           ariaLabel="Mês"
         />
         <span className="text-zinc-700">/</span>
         <FilterSelect
           value={year}
-          onChange={(value) => {
-            setPeriodFilterActive(true);
-            setYear(value);
-          }}
+          onChange={(value) => setPeriod(month, value)}
           options={yearOptions}
           ariaLabel="Ano"
           className="max-w-[5.5rem]"

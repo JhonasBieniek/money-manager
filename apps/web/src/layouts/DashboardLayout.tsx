@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AuthGuard } from "../components/AuthGuard";
 import { OnboardingProvider } from "../contexts/onboarding-context";
+import { PeriodProvider } from "../contexts/period-context";
 import { UncategorizedExpensesPanel } from "../components/features/expenses/uncategorized-expenses-panel";
 import {
   TransactionModalsProvider,
@@ -312,11 +313,13 @@ function DashboardShell() {
 export function DashboardLayout() {
   return (
     <AuthGuard>
-      <OnboardingProvider>
-        <TransactionModalsProvider>
-          <DashboardShell />
-        </TransactionModalsProvider>
-      </OnboardingProvider>
+      <PeriodProvider>
+        <OnboardingProvider>
+          <TransactionModalsProvider>
+            <DashboardShell />
+          </TransactionModalsProvider>
+        </OnboardingProvider>
+      </PeriodProvider>
     </AuthGuard>
   );
 }
