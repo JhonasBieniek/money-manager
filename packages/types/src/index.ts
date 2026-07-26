@@ -7,3 +7,4 @@ export * from "./api/financial.js";
 export * from "./api/dashboard.js";
 export * from "./api/telegram.js";
 export * from "./api/credit-cards.js";
+export * from "./api/debts.js";

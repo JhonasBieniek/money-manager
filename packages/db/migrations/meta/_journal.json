@@ -78,6 +78,27 @@
       "when": 1750000010000,
       "tag": "0010_telegram_payment_method_step",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1750000011000,
+      "tag": "0011_debts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1750000012000,
+      "tag": "0012_debts_drop_interest_rate",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1750000013000,
+      "tag": "0013_debts_payment_method",
+      "breakpoints": true
     }
   ]
 }

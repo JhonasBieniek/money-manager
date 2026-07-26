@@ -46,6 +46,10 @@ jest.unstable_mockModule("../credit-cards/credit-cards.service.js", () => ({
   recalculateStatementTotal: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.unstable_mockModule("../debts/debts.service.js", () => ({
+  syncUserDebtsForMonth: jest.fn().mockResolvedValue(undefined),
+}));
+
 const expensesService = await import("./expenses.service.js");
 
 function chainLimit<T>(value: T) {

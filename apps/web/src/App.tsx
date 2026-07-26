@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { GuestGuard } from "./components/AuthGuard";
 import { DashboardLayout } from "./layouts/DashboardLayout";
+import { DebtsPage } from "./pages/DebtsPage";
 import { CreditCardsPage } from "./pages/CreditCardsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EditTagPage } from "./pages/EditTagPage";
@@ -52,6 +53,7 @@ export function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="goals" element={<GoalsPage />} />
           <Route path="cards" element={<CreditCardsPage />} />
+          <Route path="debts" element={<DebtsPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
           <Route path="expenses/new" element={<NewExpensePage />} />
           <Route path="expenses/:id/edit" element={<EditExpensePage />} />

@@ -17,6 +17,10 @@
     "./billing-cycle": {
       "types": "./dist/billing-cycle.d.ts",
       "import": "./dist/billing-cycle.js"
+    },
+    "./installment-schedule": {
+      "types": "./dist/installment-schedule.d.ts",
+      "import": "./dist/installment-schedule.js"
     }
   },
   "scripts": {

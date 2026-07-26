@@ -7,6 +7,7 @@ import type { HealthResponse } from "@money-manager/types";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { creditCardsRoutes } from "./modules/credit-cards/credit-cards.routes.js";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
+import { debtsRoutes } from "./modules/debts/debts.routes.js";
 import { expensesRoutes } from "./modules/expenses/expenses.routes.js";
 import { expensesInternalRoutes } from "./modules/expenses/expenses-internal.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
@@ -67,6 +68,7 @@ export function createApp() {
   app.use("/v1/tags", tagsRoutes);
   app.use("/v1/goals", goalsRoutes);
   app.use("/v1/credit-cards", creditCardsRoutes);
+  app.use("/v1/debts", debtsRoutes);
   app.use("/v1/expenses", expensesRoutes);
   app.use("/v1/incomes", incomesRoutes);
   app.use("/v1/dashboard", dashboardRoutes);

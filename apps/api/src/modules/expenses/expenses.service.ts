@@ -9,6 +9,7 @@ import { newId } from "@money-manager/utils";
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, sum } from "drizzle-orm";
 import { BadRequestError, NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
+import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 import {
   assignExpenseToStatement,
 } from "../credit-cards/credit-cards.service.js";
@@ -322,10 +323,25 @@ export async function categorizeBotExpense(
   return categorizeExpense(account.userId, expenseId, input);
 }
 
+function resolveSyncMonthYear(query: ListExpensesQuery): {
+  year: number;
+  month: number;
+} {
+  if (query.year !== undefined && query.month !== undefined) {
+    return { year: query.year, month: query.month };
+  }
+
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
 export async function listExpenses(
   userId: string,
   query: ListExpensesQuery,
 ): Promise<ExpenseListResponse> {
+  const { year, month } = resolveSyncMonthYear(query);
+  await syncUserDebtsForMonth(userId, year, month);
+
   let filters = buildListFilters(userId, query);
   filters = await applyTagFilter(userId, query, filters);
   const whereClause = and(...filters);
