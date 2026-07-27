@@ -68,3 +68,18 @@ export const debtIdParamsSchema = z.object({
 });
 
 export type DebtIdParams = z.infer<typeof debtIdParamsSchema>;
+
+export const installmentIdParamsSchema = z.object({
+  debtId: z.string().uuid(),
+  installmentId: z.string().uuid(),
+});
+
+export type InstallmentIdParams = z.infer<typeof installmentIdParamsSchema>;
+
+export const setInstallmentStatusBodySchema = z.object({
+  status: z.enum(["paid", "pending"]),
+});
+
+export type SetInstallmentStatusBody = z.infer<
+  typeof setInstallmentStatusBodySchema
+>;

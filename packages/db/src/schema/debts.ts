@@ -90,6 +90,7 @@ export const debtInstallments = pgTable(
     expenseId: uuid("expense_id").references(() => expenses.id, {
       onDelete: "set null",
     }),
+    autoSyncExempt: boolean("auto_sync_exempt").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

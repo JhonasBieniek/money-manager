@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DebtWithInstallments, PaymentMethod } from "@money-manager/types";
+import type {
+  DebtInstallment,
+  DebtWithInstallments,
+  PaymentMethod,
+} from "@money-manager/types";
 import {
   INSTALLMENT_PERIOD_LABELS,
   INSTALLMENT_PERIODS,
@@ -8,6 +12,7 @@ import {
 import {
   calculateDebtEndDate,
   calendarDate,
+  generateInstallmentDueDates,
   parseDateString,
   toDateString,
 } from "@money-manager/utils/installment-schedule";
@@ -18,6 +23,7 @@ import {
   parseMoneyAmountInput,
 } from "../../ui/money-amount-input";
 import { SearchableSelect } from "../../ui/searchable-select";
+import { InstallmentList, type InstallmentListItem } from "./installment-list";
 import { Banknote, CreditCard, X, Zap } from "lucide-react";
 
 interface DebtFormModalProps {
@@ -25,6 +31,7 @@ interface DebtFormModalProps {
   debt: DebtWithInstallments | null;
   onClose: () => void;
   onSaved: () => void;
+  onInstallmentToggled?: () => void;
 }
 
 interface CreditCardOption {
@@ -58,11 +65,9 @@ export function DebtFormModal({
   debt,
   onClose,
   onSaved,
+  onInstallmentToggled,
 }: DebtFormModalProps) {
   const isEditing = debt !== null;
-  const hasPaidInstallments =
-    debt?.installments.some((item) => item.status === "paid") ?? false;
-  const structuralLocked = isEditing && hasPaidInstallments;
 
   const [name, setName] = useState("");
   const [installmentCount, setInstallmentCount] = useState("12");
@@ -76,6 +81,17 @@ export function DebtFormModal({
   const [creditCards, setCreditCards] = useState<CreditCardOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [installments, setInstallments] = useState<DebtInstallment[]>([]);
+  const [previewPaidNumbers, setPreviewPaidNumbers] = useState<Set<number>>(
+    new Set(),
+  );
+  const [togglingInstallmentId, setTogglingInstallmentId] = useState<
+    string | null
+  >(null);
+  const [amountSource, setAmountSource] = useState<
+    "installment" | "total" | null
+  >(null);
 
   const creditCardOptions = useMemo(
     () =>
@@ -98,6 +114,8 @@ export function DebtFormModal({
       setAutoSyncExpenses(debt.autoSyncExpenses);
       setPaymentMethodIndex(paymentMethodToIndex(debt.paymentMethod));
       setCreditCardId(debt.creditCardId ?? "");
+      setStartDate(debt.startDate);
+      setInstallments(debt.installments);
     } else {
       setName("");
       setInstallmentCount("12");
@@ -107,7 +125,19 @@ export function DebtFormModal({
       setAutoSyncExpenses(false);
       setPaymentMethodIndex(0);
       setCreditCardId("");
+      setStartDate(
+        toDateString(
+          calendarDate(
+            new Date().getFullYear(),
+            new Date().getMonth() + 1,
+            new Date().getDate(),
+          ),
+        ),
+      );
+      setInstallments([]);
     }
+    setPreviewPaidNumbers(new Set());
+    setAmountSource(null);
     setError(null);
   }, [open, debt]);
 
@@ -135,8 +165,8 @@ export function DebtFormModal({
     if (!Number.isInteger(countValue) || countValue < 1) {
       return null;
     }
-    const start = debt
-      ? parseDateString(debt.startDate)
+    const start = startDate
+      ? parseDateString(startDate)
       : calendarDate(
           new Date().getFullYear(),
           new Date().getMonth() + 1,
@@ -148,7 +178,93 @@ export function DebtFormModal({
       month: "long",
       year: "numeric",
     }).format(end);
-  }, [countValue, installmentPeriod, debt]);
+  }, [countValue, installmentPeriod, startDate]);
+
+  const previewInstallmentCents = useMemo(() => {
+    const installmentParsed = parseMoneyAmountInput(installmentAmount);
+    if (Number.isFinite(installmentParsed) && installmentParsed > 0) {
+      return Math.round(installmentParsed * 100);
+    }
+    const totalParsed = parseMoneyAmountInput(totalAmount);
+    if (
+      Number.isFinite(totalParsed) &&
+      totalParsed > 0 &&
+      Number.isInteger(countValue) &&
+      countValue >= 1
+    ) {
+      return Math.round((totalParsed * 100) / countValue);
+    }
+    return 0;
+  }, [installmentAmount, totalAmount, countValue]);
+
+  const previewDueDates = useMemo(() => {
+    if (!Number.isInteger(countValue) || countValue < 1) {
+      return [];
+    }
+    const start = startDate
+      ? parseDateString(startDate)
+      : calendarDate(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+          new Date().getDate(),
+        );
+    return generateInstallmentDueDates(start, countValue, installmentPeriod);
+  }, [countValue, installmentPeriod, startDate]);
+
+  const installmentListItems: InstallmentListItem[] = isEditing
+    ? installments.map((item) => ({
+        key: item.id,
+        number: item.installmentNumber,
+        dueDate: item.dueDate,
+        amountCents: item.amountCents,
+        paid: item.status === "paid",
+        toggling: togglingInstallmentId === item.id,
+      }))
+    : previewDueDates.map((date, index) => ({
+        key: `preview-${index + 1}`,
+        number: index + 1,
+        dueDate: toDateString(date),
+        amountCents: previewInstallmentCents,
+        paid: previewPaidNumbers.has(index + 1),
+      }));
+
+  async function handleToggleInstallment(item: InstallmentListItem) {
+    if (!isEditing) {
+      setPreviewPaidNumbers((prev) => {
+        const next = new Set(prev);
+        if (next.has(item.number)) {
+          next.delete(item.number);
+        } else {
+          next.add(item.number);
+        }
+        return next;
+      });
+      return;
+    }
+
+    if (!debt) return;
+    setTogglingInstallmentId(item.key);
+    try {
+      const res = await apiFetch(
+        `/v1/debts/${debt.id}/installments/${item.key}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: item.paid ? "pending" : "paid" }),
+        },
+      );
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        throw new Error(data.error ?? "Erro ao atualizar parcela");
+      }
+      const updated = (await res.json()) as DebtWithInstallments;
+      setInstallments(updated.installments);
+      onInstallmentToggled?.();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar parcela");
+    } finally {
+      setTogglingInstallmentId(null);
+    }
+  }
 
   function syncTotalFromInstallment(nextInstallment: string, count: number) {
     const parsed = parseMoneyAmountInput(nextInstallment);
@@ -168,6 +284,7 @@ export function DebtFormModal({
 
   function handleInstallmentAmountChange(value: string) {
     setInstallmentAmount(value);
+    setAmountSource("installment");
     if (Number.isInteger(countValue) && countValue >= 1) {
       syncTotalFromInstallment(value, countValue);
     }
@@ -175,6 +292,7 @@ export function DebtFormModal({
 
   function handleTotalAmountChange(value: string) {
     setTotalAmount(value);
+    setAmountSource("total");
     if (Number.isInteger(countValue) && countValue >= 1) {
       syncInstallmentFromTotal(value, countValue);
     }
@@ -205,21 +323,19 @@ export function DebtFormModal({
     const installmentParsed = parseMoneyAmountInput(installmentAmount);
     const totalParsed = parseMoneyAmountInput(totalAmount);
 
-    if (!structuralLocked) {
-      if (!Number.isInteger(countValue) || countValue < 1) {
-        setError("Informe um número válido de parcelas.");
-        setLoading(false);
-        return;
-      }
+    if (!Number.isInteger(countValue) || countValue < 1) {
+      setError("Informe um número válido de parcelas.");
+      setLoading(false);
+      return;
+    }
 
-      if (
-        (!Number.isFinite(installmentParsed) || installmentParsed <= 0) &&
-        (!Number.isFinite(totalParsed) || totalParsed <= 0)
-      ) {
-        setError("Informe o valor da parcela ou o valor total.");
-        setLoading(false);
-        return;
-      }
+    if (
+      (!Number.isFinite(installmentParsed) || installmentParsed <= 0) &&
+      (!Number.isFinite(totalParsed) || totalParsed <= 0)
+    ) {
+      setError("Informe o valor da parcela ou o valor total.");
+      setLoading(false);
+      return;
     }
 
     if (paymentMethodIndex === 1 && !creditCardId) {
@@ -234,25 +350,22 @@ export function DebtFormModal({
       paymentMethodIndex,
     };
 
-    if (!structuralLocked) {
-      payload.installmentCount = countValue;
-      payload.installmentPeriod = installmentPeriod;
+    payload.installmentCount = countValue;
+    payload.installmentPeriod = installmentPeriod;
+    payload.startDate = startDate;
 
-      if (Number.isFinite(installmentParsed) && installmentParsed > 0) {
-        payload.installmentAmount = installmentParsed;
-      }
-      if (Number.isFinite(totalParsed) && totalParsed > 0) {
-        payload.totalAmount = totalParsed;
-      }
-
-      if (!isEditing) {
-        const today = calendarDate(
-          new Date().getFullYear(),
-          new Date().getMonth() + 1,
-          new Date().getDate(),
-        );
-        payload.startDate = toDateString(today);
-      }
+    if (
+      amountSource === "total" &&
+      Number.isFinite(totalParsed) &&
+      totalParsed > 0
+    ) {
+      payload.totalAmount = totalParsed;
+    } else if (
+      amountSource === "installment" &&
+      Number.isFinite(installmentParsed) &&
+      installmentParsed > 0
+    ) {
+      payload.installmentAmount = installmentParsed;
     }
 
     if (paymentMethodIndex === 1) {
@@ -273,6 +386,35 @@ export function DebtFormModal({
         const data = (await res.json()) as { error?: string };
         throw new Error(data.error ?? "Erro ao salvar dívida");
       }
+
+      if (!isEditing && previewPaidNumbers.size > 0) {
+        const created = (await res.json()) as DebtWithInstallments;
+        try {
+          for (const installment of created.installments) {
+            if (previewPaidNumbers.has(installment.installmentNumber)) {
+              const patchRes = await apiFetch(
+                `/v1/debts/${created.id}/installments/${installment.id}`,
+                {
+                  method: "PATCH",
+                  body: JSON.stringify({ status: "paid" }),
+                },
+              );
+              if (!patchRes.ok) {
+                throw new Error();
+              }
+            }
+          }
+        } catch {
+          // The debt itself was created successfully — a failure here only
+          // affects the paid-marking follow-up, so it must not block
+          // onSaved() below (that would leave the modal open in "create"
+          // mode and risk a duplicate submission).
+          window.alert(
+            "Dívida criada, mas houve um erro ao marcar parcelas como pagas. Edite a dívida para ajustar.",
+          );
+        }
+      }
+
       onSaved();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao salvar");
@@ -280,9 +422,6 @@ export function DebtFormModal({
       setLoading(false);
     }
   }
-
-  const lockedFieldClass =
-    "opacity-60 cursor-not-allowed pointer-events-none select-none";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
@@ -306,14 +445,6 @@ export function DebtFormModal({
           </button>
         </div>
 
-        {structuralLocked ? (
-          <p className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90">
-            Parcelas e valores não podem ser alterados após o pagamento de
-            parcelas. Você ainda pode editar nome, forma de pagamento e sync de
-            despesas.
-          </p>
-        ) : null}
-
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
           <div>
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
@@ -329,12 +460,7 @@ export function DebtFormModal({
             />
           </div>
 
-          <div
-            className={cn(
-              "grid grid-cols-2 gap-4",
-              structuralLocked && lockedFieldClass,
-            )}
-          >
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Parcelas
@@ -343,8 +469,7 @@ export function DebtFormModal({
                 type="number"
                 min={1}
                 max={9999}
-                required={!structuralLocked}
-                disabled={structuralLocked}
+                required
                 value={installmentCount}
                 onChange={(e) => handleInstallmentCountChange(e.target.value)}
                 className="w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-white outline-none focus:ring-1 focus:ring-emerald-500/30"
@@ -356,7 +481,6 @@ export function DebtFormModal({
               </label>
               <select
                 value={installmentPeriod}
-                disabled={structuralLocked}
                 onChange={(e) =>
                   setInstallmentPeriod(e.target.value as InstallmentPeriod)
                 }
@@ -376,12 +500,20 @@ export function DebtFormModal({
             </div>
           </div>
 
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-4 sm:grid-cols-2",
-              structuralLocked && lockedFieldClass,
-            )}
-          >
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Data de início
+            </label>
+            <input
+              type="date"
+              required
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-white outline-none [color-scheme:dark] focus:ring-1 focus:ring-emerald-500/30"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Valor da parcela
@@ -409,6 +541,11 @@ export function DebtFormModal({
               </div>
             </div>
           </div>
+
+          <InstallmentList
+            items={installmentListItems}
+            onToggle={(item) => void handleToggleInstallment(item)}
+          />
 
           <div>
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
