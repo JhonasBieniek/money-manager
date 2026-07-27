@@ -320,7 +320,7 @@ describeWithDb("debts integration", () => {
 
     expect(patchRes.status).toBe(400);
     expect(patchRes.body.error).toContain(
-      "não pode ser menor que as parcelas já pagas",
+      "não pode ser menor que a maior parcela já paga",
     );
   });
 
@@ -599,6 +599,78 @@ describeWithDb("debts integration", () => {
         item.description.includes("Regressão auto-sync"),
     );
     expect(matchingExpenses).toHaveLength(1);
+  });
+
+  it("PATCH /v1/debts/:id preserva autoSyncExempt ao regenerar parcelas pendentes, sem duplicar despesa", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Regressão autoSyncExempt estrutural",
+        installmentCount: 1,
+        installmentAmount: 55,
+        autoSyncExpenses: true,
+      });
+
+    expect(createRes.status).toBe(201);
+    const debtId = createRes.body.id as string;
+    const installment = createRes.body.installments[0];
+    expect(installment.status).toBe("paid");
+    expect(installment.expenseId).not.toBeNull();
+    const originalExpenseId = installment.expenseId as string;
+
+    // Un-mark it: autoSyncExempt must become true so auto-sync never
+    // silently re-pays this installment again.
+    const toggleRes = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${installment.id}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "pending" });
+
+    expect(toggleRes.status).toBe(200);
+    const toggled = toggleRes.body.installments.find(
+      (item: { id: string }) => item.id === installment.id,
+    );
+    expect(toggled.status).toBe("pending");
+    expect(toggled.expenseId).toBeNull();
+
+    const expensesAfterToggleRes = await request(app)
+      .get("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(
+      expensesAfterToggleRes.body.items.some(
+        (item: { id: string }) => item.id === originalExpenseId,
+      ),
+    ).toBe(true);
+
+    // A structural PATCH (installmentCount present, even if unchanged)
+    // deletes and regenerates pending rows. Before the fix, the regenerated
+    // row lost autoSyncExempt (reset to the column default of false), so
+    // the very same transaction's auto-sync sweep immediately re-paid the
+    // installment and created a second, duplicate expense — while the
+    // original preserved expense stayed orphaned.
+    const patchRes = await request(app)
+      .patch(`/v1/debts/${debtId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ installmentCount: 1 });
+
+    expect(patchRes.status).toBe(200);
+    const regenerated = patchRes.body.installments.find(
+      (item: { installmentNumber: number }) => item.installmentNumber === 1,
+    );
+    expect(regenerated.status).toBe("pending");
+    expect(regenerated.expenseId).toBeNull();
+
+    const expensesAfterPatchRes = await request(app)
+      .get("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`);
+    const matchingAfterPatch = expensesAfterPatchRes.body.items.filter(
+      (item: { description: string }) =>
+        item.description.includes("Regressão autoSyncExempt estrutural"),
+    );
+    expect(matchingAfterPatch).toHaveLength(1);
+    expect(matchingAfterPatch[0].id).toBe(originalExpenseId);
   });
 
   it("DELETE /v1/debts/:id faz soft delete mesmo com parcelas pagas", async () => {

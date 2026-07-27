@@ -541,9 +541,27 @@ export async function updateDebt(
         0,
       );
 
+      const pendingRows = await tx
+        .select({
+          installmentNumber: debtInstallments.installmentNumber,
+          autoSyncExempt: debtInstallments.autoSyncExempt,
+        })
+        .from(debtInstallments)
+        .where(
+          and(
+            eq(debtInstallments.debtId, debtId),
+            eq(debtInstallments.status, "pending"),
+          ),
+        );
+      const exemptNumbers = new Set(
+        pendingRows
+          .filter((r) => r.autoSyncExempt)
+          .map((r) => r.installmentNumber),
+      );
+
       if (installmentCount < maxPaidNumber) {
         throw new BadRequestError(
-          "A quantidade de parcelas não pode ser menor que as parcelas já pagas",
+          "A quantidade de parcelas não pode ser menor que a maior parcela já paga",
         );
       }
 
@@ -590,6 +608,7 @@ export async function updateDebt(
           dueDate: toDateString(fullDueDates[number - 1]!),
           amountCents: installmentCents,
           status: "pending" as const,
+          autoSyncExempt: exemptNumbers.has(number),
           createdAt: now,
           updatedAt: now,
         });
