@@ -3,6 +3,8 @@ import { getUserId } from "../../shared/types/request.js";
 import {
   createDebtBodySchema,
   debtIdParamsSchema,
+  installmentIdParamsSchema,
+  setInstallmentStatusBodySchema,
   updateDebtBodySchema,
 } from "./debts.schema.js";
 import * as debtsService from "./debts.service.js";
@@ -29,4 +31,21 @@ export async function remove(req: Request, res: Response): Promise<void> {
   const { id } = debtIdParamsSchema.parse(req.params);
   await debtsService.deleteDebt(getUserId(req), id);
   res.status(204).send();
+}
+
+export async function setInstallmentStatus(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { debtId, installmentId } = installmentIdParamsSchema.parse(
+    req.params,
+  );
+  const { status } = setInstallmentStatusBodySchema.parse(req.body);
+  const debt = await debtsService.setInstallmentStatus(
+    getUserId(req),
+    debtId,
+    installmentId,
+    status,
+  );
+  res.status(200).json(debt);
 }

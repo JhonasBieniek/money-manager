@@ -342,6 +342,39 @@ async function syncUserDebtsForCurrentMonth(userId: string): Promise<void> {
   await syncUserDebtsForMonth(userId, now.getFullYear(), now.getMonth() + 1);
 }
 
+async function getDebtWithInstallments(
+  userId: string,
+  debtId: string,
+): Promise<DebtWithInstallments | undefined> {
+  const [row] = await getDb()
+    .select()
+    .from(debts)
+    .where(
+      and(
+        eq(debts.id, debtId),
+        eq(debts.userId, userId),
+        isNull(debts.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    return undefined;
+  }
+
+  const paidCents = await sumPaidCents(row.id);
+  const installmentRows = await getDb()
+    .select()
+    .from(debtInstallments)
+    .where(eq(debtInstallments.debtId, row.id))
+    .orderBy(asc(debtInstallments.installmentNumber));
+
+  return {
+    ...toDebt(row, paidCents),
+    installments: installmentRows.map(toInstallment),
+  };
+}
+
 export async function listDebts(
   userId: string,
 ): Promise<{ items: DebtWithInstallments[] }> {
@@ -642,6 +675,59 @@ export async function updateDebt(
 
   const result = await listDebts(userId);
   const updated = result.items.find((item) => item.id === debtId);
+  if (!updated) {
+    throw new NotFoundError("Dívida não encontrada");
+  }
+  return updated;
+}
+
+export async function setInstallmentStatus(
+  userId: string,
+  debtId: string,
+  installmentId: string,
+  status: "paid" | "pending",
+): Promise<DebtWithInstallments> {
+  await getDebtRow(userId, debtId);
+
+  const [installment] = await getDb()
+    .select()
+    .from(debtInstallments)
+    .where(
+      and(
+        eq(debtInstallments.id, installmentId),
+        eq(debtInstallments.debtId, debtId),
+      ),
+    )
+    .limit(1);
+
+  if (!installment) {
+    throw new NotFoundError("Parcela não encontrada");
+  }
+
+  if (installment.status !== status) {
+    const now = new Date();
+    await getDb().transaction(async (tx) => {
+      if (status === "paid") {
+        await tx
+          .update(debtInstallments)
+          .set({ status: "paid", paidAt: now, updatedAt: now })
+          .where(eq(debtInstallments.id, installmentId));
+      } else {
+        await tx
+          .update(debtInstallments)
+          .set({
+            status: "pending",
+            paidAt: null,
+            expenseId: null,
+            updatedAt: now,
+          })
+          .where(eq(debtInstallments.id, installmentId));
+      }
+      await refreshDebtBalance(tx, debtId);
+    });
+  }
+
+  const updated = await getDebtWithInstallments(userId, debtId);
   if (!updated) {
     throw new NotFoundError("Dívida não encontrada");
   }

@@ -384,6 +384,171 @@ describeWithDb("debts integration", () => {
     expect(patchRes.body.paidCents).toBe(0);
   });
 
+  it("PATCH /v1/debts/:debtId/installments/:installmentId marca parcelas pagas manualmente em sequência, sem criar despesa", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Marcação manual",
+        installmentCount: 5,
+        installmentAmount: 60,
+        autoSyncExpenses: false,
+      });
+
+    const debtId = createRes.body.id as string;
+    const [firstId, secondId] = createRes.body.installments.map(
+      (item: { id: string }) => item.id,
+    );
+
+    // Simulates marking 2 of 5 installments as already paid right after
+    // creation, via sequential toggle calls (the pattern the frontend uses).
+    await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${firstId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "paid" });
+
+    const toggleRes = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${secondId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "paid" });
+
+    expect(toggleRes.status).toBe(200);
+    const paidItems = toggleRes.body.installments.filter(
+      (item: { status: string }) => item.status === "paid",
+    );
+    expect(paidItems).toHaveLength(2);
+    expect(paidItems.every((item: { expenseId: string | null }) => item.expenseId === null)).toBe(
+      true,
+    );
+    expect(toggleRes.body.paidCents).toBe(12000);
+    expect(toggleRes.body.remainingBalanceCents).toBe(18000);
+
+    const expensesRes = await request(app)
+      .get("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(
+      expensesRes.body.items.some((item: { description: string }) =>
+        item.description.includes("Marcação manual"),
+      ),
+    ).toBe(false);
+  });
+
+  it("PATCH /v1/debts/:debtId/installments/:installmentId desmarca parcela paga por autoSync sem apagar a despesa", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Desmarcar sync",
+        installmentCount: 1,
+        installmentAmount: 45,
+        autoSyncExpenses: true,
+      });
+
+    const debtId = createRes.body.id as string;
+    const installment = createRes.body.installments[0];
+    expect(installment.status).toBe("paid");
+    expect(installment.expenseId).not.toBeNull();
+
+    const toggleRes = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${installment.id}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "pending" });
+
+    expect(toggleRes.status).toBe(200);
+    const toggled = toggleRes.body.installments.find(
+      (item: { id: string }) => item.id === installment.id,
+    );
+    expect(toggled.status).toBe("pending");
+    expect(toggled.expenseId).toBeNull();
+    expect(toggleRes.body.paidCents).toBe(0);
+
+    const expensesRes = await request(app)
+      .get("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(
+      expensesRes.body.items.some((item: { description: string }) =>
+        item.description.includes("Desmarcar sync"),
+      ),
+    ).toBe(true);
+  });
+
+  it("PATCH /v1/debts/:debtId/installments/:installmentId é idempotente e retorna 404 para parcela inexistente", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Idempotência",
+        installmentCount: 1,
+        installmentAmount: 10,
+      });
+
+    const debtId = createRes.body.id as string;
+    const installmentId = createRes.body.installments[0].id as string;
+
+    const first = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${installmentId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "pending" });
+    expect(first.status).toBe(200);
+
+    const notFound = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/00000000-0000-0000-0000-000000000000`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "paid" });
+    expect(notFound.status).toBe(404);
+  });
+
+  it("PATCH /v1/debts/:id preserva parcela paga fora de sequência ao alterar a quantidade", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Pagamento fora de ordem",
+        installmentCount: 5,
+        installmentAmount: 20,
+        autoSyncExpenses: false,
+      });
+
+    const debtId = createRes.body.id as string;
+    const thirdInstallment = createRes.body.installments[2];
+
+    // Mark only the THIRD installment paid, leaving #1, #2, #4, #5 pending.
+    await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${thirdInstallment.id}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "paid" });
+
+    const patchRes = await request(app)
+      .patch(`/v1/debts/${debtId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ installmentCount: 7 });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.installments).toHaveLength(7);
+
+    const stillPaid = patchRes.body.installments.find(
+      (item: { id: string }) => item.id === thirdInstallment.id,
+    );
+    expect(stillPaid.status).toBe("paid");
+    expect(stillPaid.installmentNumber).toBe(3);
+    expect(stillPaid.dueDate).toBe(thirdInstallment.dueDate);
+    expect(stillPaid.amountCents).toBe(thirdInstallment.amountCents);
+
+    const pendingNumbers = patchRes.body.installments
+      .filter((item: { status: string }) => item.status === "pending")
+      .map((item: { installmentNumber: number }) => item.installmentNumber)
+      .sort((a: number, b: number) => a - b);
+    expect(pendingNumbers).toEqual([1, 2, 4, 5, 6, 7]);
+  });
+
   it("DELETE /v1/debts/:id faz soft delete mesmo com parcelas pagas", async () => {
     const { accessToken } = await registerUser(app);
 

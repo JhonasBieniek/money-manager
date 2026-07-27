@@ -8,3 +8,8 @@ debtsRoutes.get("/", authenticate, debtsController.list);
 debtsRoutes.post("/", authenticate, debtsController.create);
 debtsRoutes.patch("/:id", authenticate, debtsController.update);
 debtsRoutes.delete("/:id", authenticate, debtsController.remove);
+debtsRoutes.patch(
+  "/:debtId/installments/:installmentId",
+  authenticate,
+  debtsController.setInstallmentStatus,
+);
