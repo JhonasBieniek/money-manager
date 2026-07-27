@@ -277,6 +277,7 @@ async function syncInstallmentsForMonth(
         eq(debtInstallments.debtId, debt.id),
         eq(debtInstallments.status, "pending"),
         isNull(debtInstallments.expenseId),
+        eq(debtInstallments.autoSyncExempt, false),
       ),
     )
     .orderBy(asc(debtInstallments.installmentNumber));
@@ -340,39 +341,6 @@ export async function syncUserDebtsForMonth(
 async function syncUserDebtsForCurrentMonth(userId: string): Promise<void> {
   const now = new Date();
   await syncUserDebtsForMonth(userId, now.getFullYear(), now.getMonth() + 1);
-}
-
-async function getDebtWithInstallments(
-  userId: string,
-  debtId: string,
-): Promise<DebtWithInstallments | undefined> {
-  const [row] = await getDb()
-    .select()
-    .from(debts)
-    .where(
-      and(
-        eq(debts.id, debtId),
-        eq(debts.userId, userId),
-        isNull(debts.deletedAt),
-      ),
-    )
-    .limit(1);
-
-  if (!row) {
-    return undefined;
-  }
-
-  const paidCents = await sumPaidCents(row.id);
-  const installmentRows = await getDb()
-    .select()
-    .from(debtInstallments)
-    .where(eq(debtInstallments.debtId, row.id))
-    .orderBy(asc(debtInstallments.installmentNumber));
-
-  return {
-    ...toDebt(row, paidCents),
-    installments: installmentRows.map(toInstallment),
-  };
 }
 
 export async function listDebts(
@@ -710,7 +678,12 @@ export async function setInstallmentStatus(
       if (status === "paid") {
         await tx
           .update(debtInstallments)
-          .set({ status: "paid", paidAt: now, updatedAt: now })
+          .set({
+            status: "paid",
+            paidAt: now,
+            autoSyncExempt: true,
+            updatedAt: now,
+          })
           .where(eq(debtInstallments.id, installmentId));
       } else {
         await tx
@@ -719,6 +692,7 @@ export async function setInstallmentStatus(
             status: "pending",
             paidAt: null,
             expenseId: null,
+            autoSyncExempt: true,
             updatedAt: now,
           })
           .where(eq(debtInstallments.id, installmentId));
@@ -727,7 +701,8 @@ export async function setInstallmentStatus(
     });
   }
 
-  const updated = await getDebtWithInstallments(userId, debtId);
+  const result = await listDebts(userId);
+  const updated = result.items.find((item) => item.id === debtId);
   if (!updated) {
     throw new NotFoundError("Dívida não encontrada");
   }

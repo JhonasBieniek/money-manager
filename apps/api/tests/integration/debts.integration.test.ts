@@ -549,6 +549,58 @@ describeWithDb("debts integration", () => {
     expect(pendingNumbers).toEqual([1, 2, 4, 5, 6, 7]);
   });
 
+  it("PATCH /v1/debts/:debtId/installments/:installmentId desmarcado permanece pendente após recarregar a lista (não é revertido pelo auto-sync)", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Regressão auto-sync",
+        installmentCount: 1,
+        installmentAmount: 45,
+        autoSyncExpenses: true,
+      });
+
+    const debtId = createRes.body.id as string;
+    const installment = createRes.body.installments[0];
+    expect(installment.status).toBe("paid");
+    expect(installment.expenseId).not.toBeNull();
+
+    const toggleRes = await request(app)
+      .patch(`/v1/debts/${debtId}/installments/${installment.id}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ status: "pending" });
+    expect(toggleRes.status).toBe(200);
+
+    // Simulates the frontend reloading the debts list after closing the
+    // edit modal — this is what previously re-triggered auto-sync and
+    // silently flipped the installment back to "paid" with a NEW expense.
+    const listRes = await request(app)
+      .get("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(listRes.status).toBe(200);
+
+    const reloadedDebt = listRes.body.items.find(
+      (item: { id: string }) => item.id === debtId,
+    );
+    const reloadedInstallment = reloadedDebt.installments.find(
+      (item: { id: string }) => item.id === installment.id,
+    );
+    expect(reloadedInstallment.status).toBe("pending");
+    expect(reloadedInstallment.expenseId).toBeNull();
+    expect(reloadedDebt.paidCents).toBe(0);
+
+    const expensesRes = await request(app)
+      .get("/v1/expenses")
+      .set("Authorization", `Bearer ${accessToken}`);
+    const matchingExpenses = expensesRes.body.items.filter(
+      (item: { description: string }) =>
+        item.description.includes("Regressão auto-sync"),
+    );
+    expect(matchingExpenses).toHaveLength(1);
+  });
+
   it("DELETE /v1/debts/:id faz soft delete mesmo com parcelas pagas", async () => {
     const { accessToken } = await registerUser(app);
 

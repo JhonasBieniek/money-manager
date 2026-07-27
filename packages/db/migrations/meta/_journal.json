@@ -99,6 +99,13 @@
       "when": 1750000013000,
       "tag": "0013_debts_payment_method",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1750000014000,
+      "tag": "0014_debts_installment_auto_sync_exempt",
+      "breakpoints": true
     }
   ]
 }
