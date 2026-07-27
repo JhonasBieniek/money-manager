@@ -16,7 +16,7 @@ rationale for every table/enum/route below lives in `planning/ROADMAP.md`
 planning doc for a separate, larger multi-repo effort), so this spec restates
 everything needed to implement this round without depending on it.
 
-**Explicitly out of scope, deferred to future rounds (see §6):** automatic
+**Explicitly out of scope, deferred to future rounds (see §4):** automatic
 quotes for variable-income (`renda variável`) positions (Brapi/CoinGecko),
 `investment_snapshots` / evolution charts, IPCA/CDI benchmarks, and any E2E
 tests.
@@ -99,7 +99,7 @@ New enums:
 | `id` | uuid pk | |
 | `user_id` | uuid fk `users` | |
 | `name` | text not null | |
-| `icon` | text nullable | a `lucide-react` icon name (e.g. `"plane"`), not a raw emoji — see §3 |
+| `icon` | text nullable | a `lucide-react` icon name (e.g. `"plane"`), not a raw emoji — see §2 |
 | `current_amount_cents` | bigint not null, default `0` | never negative |
 | `target_amount_cents` | bigint nullable | `null` = non-monetary goal |
 | `goal_description` | text nullable | free-text purpose |
@@ -170,14 +170,14 @@ the shape doesn't break when Features 20b/20c land later):
 
 | Method | Route | Body / Notes |
 |---|---|---|
-| GET | `/v1/piggy-banks` | optional `?status=active\|completed` filter |
+| GET | `/v1/piggy-banks` | optional `?status=active\|completed` filter; no pagination (low row count expected, same as investment accounts) |
 | POST | `/v1/piggy-banks` | `{ name, icon?, targetAmountCents?, goalDescription?, targetDate? }` |
 | GET | `/v1/piggy-banks/:id` | |
 | PATCH | `/v1/piggy-banks/:id` | partial: `name`, `icon`, `targetAmountCents`, `goalDescription`, `targetDate` |
 | DELETE | `/v1/piggy-banks/:id` | soft delete; `piggy_bank_transactions` rows are preserved (history isn't lost, just stops counting toward patrimony) |
 | POST | `/v1/piggy-banks/:id/deposit` | `{ amountCents, note? }` |
 | POST | `/v1/piggy-banks/:id/withdraw` | `{ amountCents, note? }` — validates against `current_amount_cents` |
-| PATCH | `/v1/piggy-banks/:id/status` | `{ status: "active" \| "completed" }` — always manual |
+| PATCH | `/v1/piggy-banks/:id/status` | `{ status: "active" \| "completed" }` — always manual, toggles either direction (a completed piggy bank can be reopened to `active`) |
 | GET | `/v1/piggy-banks/:id/transactions` | paginated history |
 
 ### 1.4 Deferred endpoints (not built this round)
@@ -185,7 +185,7 @@ the shape doesn't break when Features 20b/20c land later):
 `PATCH /v1/investment-holdings/:id/quote-mode`, `POST .../refresh-quote`,
 `POST /v1/investments/refresh-quotes`, `GET /v1/patrimony/history`,
 `GET /v1/patrimony/benchmarks`, `POST /v1/patrimony/snapshots` — all exist
-only to serve variable-income quoting or charts (§6).
+only to serve variable-income quoting or charts (§4).
 
 ### 1.5 Business rules
 
@@ -208,7 +208,19 @@ only to serve variable-income quoting or charts (§6).
 - No integration with `expenses`/`incomes`: depositing into or withdrawing
   from a piggy bank never creates, edits, or deletes an expense/income row.
 
-### 1.6 Errors
+### 1.6 `packages/types` and `packages/utils`
+
+- `packages/types/src/api/investments.ts` (new) — `InvestmentAccount`,
+  `InvestmentAccountType`, `InvestmentHolding`, `IncomeType`,
+  `PatrimonySummary`, and the request DTOs for each endpoint in §1.2.
+- `packages/types/src/api/piggy-banks.ts` (new) — `PiggyBank`,
+  `PiggyBankStatus`, `PiggyBankTransaction`, `PiggyBankTransactionType`, and
+  the request DTOs for each endpoint in §1.3.
+- `packages/utils` — no changes. Nothing this round needs date-math or
+  formatting helpers beyond what already exists (unlike Feature 19's
+  `installment-schedule.ts`, there's no recurring schedule to generate here).
+
+### 1.7 Errors
 
 Same conventions as `debts` (which this session just worked on): `AppError`
 subclasses with Portuguese messages, `{ error, code }` JSON shape via the
@@ -246,7 +258,10 @@ existing error middleware.
 - `PiggyBanksSection` — grid of piggy bank cards, on the same page.
 - `PiggyBankCard` — name, icon, current value, progress bar when
   `targetAmountCents` is set, elapsed-time display when it isn't, completed
-  badge.
+  badge. When `current_amount_cents` reaches `target_amount_cents`, the card
+  shows an inline "Marcar como concluído?" prompt rather than silently
+  waiting for the user to notice the full progress bar — status still only
+  changes on explicit confirmation (§1.5).
 - `PiggyBankFormModal` — CRUD for `name` / icon / target / description /
   target date. Icon field is a picker over a fixed set of ~24 `lucide-react`
   icons (travel, home, car, education, gift, emergency-fund, generic
@@ -257,7 +272,7 @@ existing error middleware.
 Not built this round: `PiggyBankHistoryDrawer` (transaction history has no
 dedicated UI yet — the data and `GET .../transactions` endpoint exist from
 day one, so this is pure UI backlog, not a data gap), and all charting
-components (§6).
+components (§4).
 
 ---
 
