@@ -148,6 +148,11 @@ export function resolveInstallmentCentsForUpdate(
       return existing.installmentCents;
     }
     const totalCents = Math.round(input.totalAmount * 100);
+    if (totalCents <= paidTotalCents) {
+      throw new BadRequestError(
+        "O valor total não pode ser menor ou igual ao valor já pago",
+      );
+    }
     return Math.round((totalCents - paidTotalCents) / pendingCount);
   }
 

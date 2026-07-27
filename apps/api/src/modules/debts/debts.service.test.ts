@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import { BadRequestError } from "../../shared/errors/app-error.js";
 import { resolveInstallmentCentsForUpdate } from "./debts.service.js";
 
 const baseExisting = {
@@ -50,5 +51,20 @@ describe("resolveInstallmentCentsForUpdate", () => {
       6,
     );
     expect(result).toBe(5000);
+  });
+
+  it("lança BadRequestError quando totalAmount é menor ou igual ao valor já pago", () => {
+    // 2 paid @ 5000 = 10000 paidTotalCents; 6 total installments so
+    // pendingCount = 4; caller sends totalAmount 90 (9000 cents), which is
+    // less than the 10000 already paid.
+    expect(() =>
+      resolveInstallmentCentsForUpdate(
+        { totalAmount: 90 },
+        baseExisting,
+        2,
+        10000,
+        6,
+      ),
+    ).toThrow(BadRequestError);
   });
 });
