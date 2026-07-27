@@ -281,27 +281,77 @@ describeWithDb("debts integration", () => {
     expect(pending.dueDate).toBe("2027-01-08");
   });
 
-  it("PATCH /v1/debts/:id rejeita quantidade de parcelas menor que as já pagas", async () => {
+  it("PATCH /v1/debts/:id rejeita quantidade de parcelas menor que a maior parcela já paga", async () => {
     const { accessToken } = await registerUser(app);
+
+    // Use a "daily" schedule starting on day 1 of the current real month so
+    // that all 3 due dates (day 1, 2, 3) land in the current month and get
+    // auto-synced to "paid" immediately on creation — giving us a debt with
+    // 3 paid installments (maxPaidNumber = 3) without needing the Task 4
+    // per-installment toggle endpoint.
+    const now = new Date();
+    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
     const createRes = await request(app)
       .post("/v1/debts")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
         name: "Dívida quase paga",
+        installmentCount: 3,
+        installmentPeriod: "daily",
+        installmentAmount: 30,
+        autoSyncExpenses: true,
+        startDate,
+      });
+
+    const debtId = createRes.body.id as string;
+    const paidInstallments = createRes.body.installments.filter(
+      (item: { status: string }) => item.status === "paid",
+    );
+    expect(paidInstallments).toHaveLength(3);
+
+    // installmentCount: 1 is valid per the Zod schema (min 1), but the
+    // highest paid installmentNumber is 3, so the service-layer guard must
+    // still reject it.
+    const patchRes = await request(app)
+      .patch(`/v1/debts/${debtId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ installmentCount: 1 });
+
+    expect(patchRes.status).toBe(400);
+    expect(patchRes.body.error).toContain(
+      "não pode ser menor que as parcelas já pagas",
+    );
+  });
+
+  it("PATCH /v1/debts/:id aceita installmentCount igual à maior parcela já paga", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Dívida no limite",
         installmentCount: 2,
         installmentAmount: 30,
         autoSyncExpenses: true,
       });
 
     const debtId = createRes.body.id as string;
+    const paidInstallments = createRes.body.installments.filter(
+      (item: { status: string }) => item.status === "paid",
+    );
+    expect(paidInstallments).toHaveLength(1);
 
     const patchRes = await request(app)
       .patch(`/v1/debts/${debtId}`)
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ installmentCount: 0 });
+      .send({ installmentCount: 1 });
 
-    expect(patchRes.status).toBe(400);
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.installmentCount).toBe(1);
+    expect(patchRes.body.installments).toHaveLength(1);
+    expect(patchRes.body.installments[0].status).toBe("paid");
   });
 
   it("PATCH /v1/debts/:id permite alteração estrutural sem parcelas pagas", async () => {
