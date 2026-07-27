@@ -89,6 +89,9 @@ export function DebtFormModal({
   const [togglingInstallmentId, setTogglingInstallmentId] = useState<
     string | null
   >(null);
+  const [amountSource, setAmountSource] = useState<
+    "installment" | "total" | null
+  >(null);
 
   const creditCardOptions = useMemo(
     () =>
@@ -134,6 +137,7 @@ export function DebtFormModal({
       setInstallments([]);
     }
     setPreviewPaidNumbers(new Set());
+    setAmountSource(null);
     setError(null);
   }, [open, debt]);
 
@@ -280,6 +284,7 @@ export function DebtFormModal({
 
   function handleInstallmentAmountChange(value: string) {
     setInstallmentAmount(value);
+    setAmountSource("installment");
     if (Number.isInteger(countValue) && countValue >= 1) {
       syncTotalFromInstallment(value, countValue);
     }
@@ -287,6 +292,7 @@ export function DebtFormModal({
 
   function handleTotalAmountChange(value: string) {
     setTotalAmount(value);
+    setAmountSource("total");
     if (Number.isInteger(countValue) && countValue >= 1) {
       syncInstallmentFromTotal(value, countValue);
     }
@@ -348,11 +354,18 @@ export function DebtFormModal({
     payload.installmentPeriod = installmentPeriod;
     payload.startDate = startDate;
 
-    if (Number.isFinite(installmentParsed) && installmentParsed > 0) {
-      payload.installmentAmount = installmentParsed;
-    }
-    if (Number.isFinite(totalParsed) && totalParsed > 0) {
+    if (
+      amountSource === "total" &&
+      Number.isFinite(totalParsed) &&
+      totalParsed > 0
+    ) {
       payload.totalAmount = totalParsed;
+    } else if (
+      amountSource === "installment" &&
+      Number.isFinite(installmentParsed) &&
+      installmentParsed > 0
+    ) {
+      payload.installmentAmount = installmentParsed;
     }
 
     if (paymentMethodIndex === 1) {
