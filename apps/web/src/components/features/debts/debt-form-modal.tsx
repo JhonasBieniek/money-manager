@@ -31,6 +31,7 @@ interface DebtFormModalProps {
   debt: DebtWithInstallments | null;
   onClose: () => void;
   onSaved: () => void;
+  onInstallmentToggled?: () => void;
 }
 
 interface CreditCardOption {
@@ -64,6 +65,7 @@ export function DebtFormModal({
   debt,
   onClose,
   onSaved,
+  onInstallmentToggled,
 }: DebtFormModalProps) {
   const isEditing = debt !== null;
 
@@ -252,6 +254,7 @@ export function DebtFormModal({
       }
       const updated = (await res.json()) as DebtWithInstallments;
       setInstallments(updated.installments);
+      onInstallmentToggled?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar parcela");
     } finally {
@@ -389,7 +392,11 @@ export function DebtFormModal({
             }
           }
         } catch {
-          throw new Error(
+          // The debt itself was created successfully — a failure here only
+          // affects the paid-marking follow-up, so it must not block
+          // onSaved() below (that would leave the modal open in "create"
+          // mode and risk a duplicate submission).
+          window.alert(
             "Dívida criada, mas houve um erro ao marcar parcelas como pagas. Edite a dívida para ajustar.",
           );
         }

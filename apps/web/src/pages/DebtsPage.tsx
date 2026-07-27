@@ -152,6 +152,7 @@ export function DebtsPage() {
           closeForm();
           void loadDebts();
         }}
+        onInstallmentToggled={() => void loadDebts()}
       />
     </div>
   );
