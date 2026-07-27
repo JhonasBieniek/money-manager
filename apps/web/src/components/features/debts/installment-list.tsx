@@ -44,6 +44,8 @@ export function InstallmentList({ items, onToggle }: InstallmentListProps) {
             type="button"
             disabled={item.toggling}
             onClick={() => onToggle(item)}
+            aria-pressed={item.paid}
+            aria-label={`Parcela ${item.number} - ${item.paid ? "paga" : "pendente"}`}
             className={cn(
               "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors disabled:opacity-50",
               item.paid
