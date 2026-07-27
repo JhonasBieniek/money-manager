@@ -143,54 +143,28 @@ function hasStructuralChanges(input: UpdateDebtBody): boolean {
   );
 }
 
-function resolveAmountsForUpdate(
+export function resolveInstallmentCentsForUpdate(
   input: UpdateDebtBody,
   existing: DebtRow,
-): {
-  installmentCents: number;
-  totalCents: number;
-  installmentCount: number;
-  installmentPeriod: InstallmentPeriod;
-} {
-  const installmentCount = input.installmentCount ?? existing.installmentCount;
-  const installmentPeriod =
-    (input.installmentPeriod ?? existing.installmentPeriod) as InstallmentPeriod;
-
-  if (input.installmentAmount !== undefined && input.totalAmount !== undefined) {
-    const installmentCents = Math.round(input.installmentAmount * 100);
-    const totalCents = Math.round(input.totalAmount * 100);
-    const expected = installmentCents * installmentCount;
-    if (Math.abs(expected - totalCents) > 1) {
-      throw new BadRequestError(
-        "Valor total não corresponde a parcelas × valor da parcela",
-      );
-    }
-    return { installmentCents, totalCents, installmentCount, installmentPeriod };
-  }
+  paidCount: number,
+  paidTotalCents: number,
+  installmentCount: number,
+): number {
+  const pendingCount = installmentCount - paidCount;
 
   if (input.installmentAmount !== undefined) {
-    const installmentCents = Math.round(input.installmentAmount * 100);
-    return {
-      installmentCents,
-      totalCents: installmentCents * installmentCount,
-      installmentCount,
-      installmentPeriod,
-    };
+    return Math.round(input.installmentAmount * 100);
   }
 
   if (input.totalAmount !== undefined) {
+    if (pendingCount === 0) {
+      return existing.installmentCents;
+    }
     const totalCents = Math.round(input.totalAmount * 100);
-    const installmentCents = Math.round(totalCents / installmentCount);
-    return { installmentCents, totalCents, installmentCount, installmentPeriod };
+    return Math.round((totalCents - paidTotalCents) / pendingCount);
   }
 
-  const installmentCents = existing.installmentCents;
-  return {
-    installmentCents,
-    totalCents: installmentCents * installmentCount,
-    installmentCount,
-    installmentPeriod,
-  };
+  return existing.installmentCents;
 }
 
 async function getDebtRow(userId: string, debtId: string): Promise<DebtRow> {
