@@ -120,9 +120,9 @@ async function assertCreditCardBelongsToUser(
   }
 }
 
-async function countPaidInstallments(debtId: string): Promise<number> {
+async function getPaidInstallmentAmounts(debtId: string): Promise<number[]> {
   const rows = await getDb()
-    .select({ id: debtInstallments.id })
+    .select({ amountCents: debtInstallments.amountCents })
     .from(debtInstallments)
     .where(
       and(
@@ -130,7 +130,7 @@ async function countPaidInstallments(debtId: string): Promise<number> {
         eq(debtInstallments.status, "paid"),
       ),
     );
-  return rows.length;
+  return rows.map((row) => row.amountCents);
 }
 
 function hasStructuralChanges(input: UpdateDebtBody): boolean {
@@ -479,14 +479,9 @@ export async function updateDebt(
   input: UpdateDebtBody,
 ): Promise<DebtWithInstallments> {
   const row = await getDebtRow(userId, debtId);
-  const paidCount = await countPaidInstallments(debtId);
-  const hasPaidInstallments = paidCount > 0;
-
-  if (hasPaidInstallments && hasStructuralChanges(input)) {
-    throw new BadRequestError(
-      "Não é possível alterar parcelas ou valores após o pagamento de parcelas",
-    );
-  }
+  const paidAmounts = await getPaidInstallmentAmounts(debtId);
+  const paidCount = paidAmounts.length;
+  const paidTotalCents = paidAmounts.reduce((acc, cents) => acc + cents, 0);
 
   const paymentMethod =
     input.paymentMethodIndex !== undefined
@@ -518,9 +513,25 @@ export async function updateDebt(
     updates.creditCardId = creditCardId;
   }
 
-  if (!hasPaidInstallments && hasStructuralChanges(input)) {
-    const { installmentCents, totalCents, installmentCount, installmentPeriod } =
-      resolveAmountsForUpdate(input, row);
+  if (hasStructuralChanges(input)) {
+    const installmentCount = input.installmentCount ?? row.installmentCount;
+    const installmentPeriod = (input.installmentPeriod ??
+      row.installmentPeriod) as InstallmentPeriod;
+
+    if (installmentCount < paidCount) {
+      throw new BadRequestError(
+        "A quantidade de parcelas não pode ser menor que as parcelas já pagas",
+      );
+    }
+
+    const installmentCents = resolveInstallmentCentsForUpdate(
+      input,
+      row,
+      paidCount,
+      paidTotalCents,
+      installmentCount,
+    );
+
     const startDate = input.startDate
       ? parseDateString(input.startDate)
       : parseDateString(row.startDate);
@@ -529,16 +540,24 @@ export async function updateDebt(
       installmentCount,
       installmentPeriod,
     );
-    const dueDates = generateInstallmentDueDates(
+    const fullDueDates = generateInstallmentDueDates(
       startDate,
       installmentCount,
       installmentPeriod,
     );
+    const pendingDueDates = fullDueDates.slice(paidCount);
+    const totalCents =
+      paidTotalCents + installmentCents * pendingDueDates.length;
 
     await getDb().transaction(async (tx) => {
       await tx
         .delete(debtInstallments)
-        .where(eq(debtInstallments.debtId, debtId));
+        .where(
+          and(
+            eq(debtInstallments.debtId, debtId),
+            eq(debtInstallments.status, "pending"),
+          ),
+        );
 
       await tx
         .update(debts)
@@ -550,24 +569,26 @@ export async function updateDebt(
           totalCents,
           startDate: toDateString(startDate),
           endDate: toDateString(endDate),
-          remainingBalanceCents: totalCents,
-          status: "active",
         })
         .where(eq(debts.id, debtId));
 
-      await tx.insert(debtInstallments).values(
-        dueDates.map((dueDate, index) => ({
-          id: newId(),
-          debtId,
-          userId,
-          installmentNumber: index + 1,
-          dueDate: toDateString(dueDate),
-          amountCents: installmentCents,
-          status: "pending" as const,
-          createdAt: now,
-          updatedAt: now,
-        })),
-      );
+      if (pendingDueDates.length > 0) {
+        await tx.insert(debtInstallments).values(
+          pendingDueDates.map((dueDate, index) => ({
+            id: newId(),
+            debtId,
+            userId,
+            installmentNumber: paidCount + index + 1,
+            dueDate: toDateString(dueDate),
+            amountCents: installmentCents,
+            status: "pending" as const,
+            createdAt: now,
+            updatedAt: now,
+          })),
+        );
+      }
+
+      await refreshDebtBalance(tx, debtId);
 
       const autoSync = input.autoSyncExpenses ?? row.autoSyncExpenses;
       if (autoSync) {

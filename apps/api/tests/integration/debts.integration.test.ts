@@ -198,14 +198,97 @@ describeWithDb("debts integration", () => {
     expect(patchRes.body.paidCents).toBeGreaterThan(0);
   });
 
-  it("PATCH /v1/debts/:id bloqueia alteração estrutural com parcelas pagas", async () => {
+  it("PATCH /v1/debts/:id aumenta parcelas mantendo as já pagas congeladas", async () => {
     const { accessToken } = await registerUser(app);
 
     const createRes = await request(app)
       .post("/v1/debts")
       .set("Authorization", `Bearer ${accessToken}`)
       .send({
-        name: "Dívida bloqueada",
+        name: "Dívida com parcelas pagas",
+        installmentCount: 2,
+        installmentAmount: 30,
+        autoSyncExpenses: true,
+      });
+
+    const debtId = createRes.body.id as string;
+    const paidInstallment = createRes.body.installments.find(
+      (item: { status: string }) => item.status === "paid",
+    );
+    expect(paidInstallment).toBeDefined();
+
+    const patchRes = await request(app)
+      .patch(`/v1/debts/${debtId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ installmentCount: 4 });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.installmentCount).toBe(4);
+    expect(patchRes.body.installments).toHaveLength(4);
+
+    const stillPaid = patchRes.body.installments.find(
+      (item: { id: string }) => item.id === paidInstallment.id,
+    );
+    expect(stillPaid.status).toBe("paid");
+    expect(stillPaid.dueDate).toBe(paidInstallment.dueDate);
+    expect(stillPaid.amountCents).toBe(paidInstallment.amountCents);
+
+    // paid (3000) + 3 new pending @ 3000 = 3000 + 9000 = 12000
+    expect(patchRes.body.totalCents).toBe(12000);
+    expect(patchRes.body.paidCents).toBe(3000);
+  });
+
+  it("PATCH /v1/debts/:id altera período e data de início preservando parcelas pagas", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Dívida com período alterado",
+        installmentCount: 2,
+        installmentAmount: 40,
+        autoSyncExpenses: true,
+      });
+
+    const debtId = createRes.body.id as string;
+    const paidInstallment = createRes.body.installments.find(
+      (item: { status: string }) => item.status === "paid",
+    );
+    expect(paidInstallment).toBeDefined();
+
+    const patchRes = await request(app)
+      .patch(`/v1/debts/${debtId}`)
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ installmentPeriod: "weekly", startDate: "2027-01-01" });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.installmentPeriod).toBe("weekly");
+
+    const stillPaid = patchRes.body.installments.find(
+      (item: { id: string }) => item.id === paidInstallment.id,
+    );
+    expect(stillPaid.status).toBe("paid");
+    expect(stillPaid.dueDate).toBe(paidInstallment.dueDate);
+    expect(stillPaid.amountCents).toBe(paidInstallment.amountCents);
+
+    const pending = patchRes.body.installments.find(
+      (item: { id: string }) => item.id !== paidInstallment.id,
+    );
+    expect(pending.status).toBe("pending");
+    // paidCount = 1, so the pending row is index 1 of the regenerated
+    // schedule: startDate (2027-01-01) + 1 week = 2027-01-08.
+    expect(pending.dueDate).toBe("2027-01-08");
+  });
+
+  it("PATCH /v1/debts/:id rejeita quantidade de parcelas menor que as já pagas", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Dívida quase paga",
         installmentCount: 2,
         installmentAmount: 30,
         autoSyncExpenses: true,
@@ -216,10 +299,9 @@ describeWithDb("debts integration", () => {
     const patchRes = await request(app)
       .patch(`/v1/debts/${debtId}`)
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ installmentCount: 4 });
+      .send({ installmentCount: 0 });
 
     expect(patchRes.status).toBe(400);
-    expect(patchRes.body.error).toContain("parcelas ou valores");
   });
 
   it("PATCH /v1/debts/:id permite alteração estrutural sem parcelas pagas", async () => {
