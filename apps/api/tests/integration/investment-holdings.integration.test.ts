@@ -70,7 +70,7 @@ describeWithDb("investment holdings integration", () => {
     expect(res.body.error).toBe("Conta de investimento inválida");
   });
 
-  it("POST /v1/investment-holdings rejeita incomeType variable_income", async () => {
+  it("POST /v1/investment-holdings rejeita variable_income sem assetClass/quantity", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
 
@@ -85,7 +85,7 @@ describeWithDb("investment holdings integration", () => {
       });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("Renda variável");
+    expect(res.body.error).toBe("Invalid request");
   });
 
   it("PATCH /v1/investment-holdings/:id/valuation atualiza valor e last_valuation_at", async () => {

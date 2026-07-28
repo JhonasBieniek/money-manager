@@ -3,16 +3,18 @@ import {
   investmentAccounts,
   investmentHoldings,
 } from "@money-manager/db";
-import type { InvestmentHolding } from "@money-manager/types";
+import type { AssetClass, InvestmentHolding } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
 import { and, eq, isNull } from "drizzle-orm";
 import {
   BadRequestError,
   NotFoundError,
 } from "../../shared/errors/app-error.js";
+import { pricingSourceForAssetClass } from "./pricing/types.js";
 import type {
   CreateInvestmentHoldingBody,
   ListInvestmentHoldingsQuery,
+  UpdateHoldingQuoteModeBody,
   UpdateHoldingValuationBody,
   UpdateInvestmentHoldingBody,
 } from "./investment-holdings.schema.js";
@@ -26,8 +28,14 @@ function toInvestmentHolding(row: InvestmentHoldingRow): InvestmentHolding {
     userId: row.userId,
     symbol: row.symbol,
     incomeType: row.incomeType,
+    assetClass: row.assetClass,
+    quantity: row.quantity,
+    averageCostCents: row.averageCostCents,
     currentUnitValueCents: row.currentUnitValueCents,
     maturityDate: row.maturityDate,
+    pricingSource: row.pricingSource,
+    manualOverride: row.manualOverride,
+    lastQuoteError: row.lastQuoteError,
     notes: row.notes,
     lastValuationAt: row.lastValuationAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
@@ -113,12 +121,13 @@ export async function createInvestmentHolding(
   userId: string,
   input: CreateInvestmentHoldingBody,
 ): Promise<InvestmentHolding> {
-  if (input.incomeType && input.incomeType !== "fixed_income") {
-    throw new BadRequestError("Renda variável ainda não suportada");
-  }
-
   await assertAccountBelongsToUser(userId, input.accountId);
 
+  const incomeType = input.incomeType ?? "fixed_income";
+  const isVariableIncome = incomeType === "variable_income";
+  const pricingSource = isVariableIncome
+    ? pricingSourceForAssetClass(input.assetClass as AssetClass)
+    : "manual";
   const now = new Date();
   const id = newId();
 
@@ -129,9 +138,19 @@ export async function createInvestmentHolding(
       accountId: input.accountId,
       userId,
       symbol: input.symbol,
-      incomeType: "fixed_income",
-      currentUnitValueCents: input.currentUnitValueCents,
+      incomeType,
+      assetClass: isVariableIncome ? (input.assetClass ?? null) : null,
+      quantity: isVariableIncome ? String(input.quantity) : "1",
+      averageCostCents: isVariableIncome
+        ? (input.averageCostCents ?? null)
+        : null,
+      currentUnitValueCents: input.currentUnitValueCents ?? 0,
       maturityDate: input.maturityDate ?? null,
+      pricingSource,
+      lastQuoteError:
+        isVariableIncome && input.currentUnitValueCents === undefined
+          ? "Cotação pendente"
+          : null,
       notes: input.notes ?? null,
       lastValuationAt: now,
       createdAt: now,
@@ -178,6 +197,26 @@ export async function updateHoldingValuation(
       lastValuationAt: now,
       updatedAt: now,
     })
+    .where(eq(investmentHoldings.id, holdingId));
+
+  return getInvestmentHolding(userId, holdingId);
+}
+
+export async function updateHoldingQuoteMode(
+  userId: string,
+  holdingId: string,
+  input: UpdateHoldingQuoteModeBody,
+): Promise<InvestmentHolding> {
+  const row = await getInvestmentHoldingRow(userId, holdingId);
+  if (row.incomeType !== "variable_income") {
+    throw new BadRequestError(
+      "Alternância de cotação automática disponível apenas para renda variável",
+    );
+  }
+
+  await getDb()
+    .update(investmentHoldings)
+    .set({ manualOverride: input.manualOverride, updatedAt: new Date() })
     .where(eq(investmentHoldings.id, holdingId));
 
   return getInvestmentHolding(userId, holdingId);
