@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "./users.js";
@@ -125,4 +126,43 @@ export const investmentQuoteCache = pgTable(
     rawResponse: jsonb("raw_response"),
   },
   (t) => [primaryKey({ columns: [t.symbol, t.assetClass] })],
+);
+
+export const benchmarkTypeEnum = pgEnum("benchmark_type", ["ipca", "cdi"]);
+
+export const investmentSnapshots = pgTable(
+  "investment_snapshots",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    snapshotDate: date("snapshot_date").notNull(),
+    totalAssetsCents: bigint("total_assets_cents", { mode: "number" }).notNull(),
+    byAssetClass: jsonb("by_asset_class").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("investment_snapshots_user_id_idx").on(t.userId),
+    uniqueIndex("investment_snapshots_user_date_idx").on(
+      t.userId,
+      t.snapshotDate,
+    ),
+  ],
+);
+
+export const benchmarkRates = pgTable(
+  "benchmark_rates",
+  {
+    benchmark: benchmarkTypeEnum("benchmark").notNull(),
+    referenceMonth: date("reference_month").notNull(),
+    monthlyRatePct: numeric("monthly_rate_pct", {
+      precision: 10,
+      scale: 4,
+    }).notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.benchmark, t.referenceMonth] })],
 );
