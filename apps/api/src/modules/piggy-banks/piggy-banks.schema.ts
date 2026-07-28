@@ -2,16 +2,18 @@ import { z } from "zod";
 
 export const createPiggyBankBodySchema = z.object({
   name: z.string().trim().min(1, "Informe um nome para o cofrinho"),
-  icon: z.string().trim().min(1).optional(),
+  icon: z.string().trim().min(1).nullable().optional(),
   targetAmountCents: z
     .number()
     .int()
     .positive("Valor da meta inválido")
+    .nullable()
     .optional(),
-  goalDescription: z.string().trim().min(1).optional(),
+  goalDescription: z.string().trim().min(1).nullable().optional(),
   targetDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
     .optional(),
 });
 
