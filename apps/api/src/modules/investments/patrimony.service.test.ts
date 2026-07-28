@@ -142,6 +142,38 @@ describe("computePatrimonySummary", () => {
     expect(result.upcomingMaturities[0]?.holdingId).toBe("h-soon");
   });
 
+  it("inclui holding cujo vencimento é hoje mesmo quando UTC já virou o dia (fuso America/Sao_Paulo)", () => {
+    // 2026-01-16T01:30:00Z corresponde a 2026-01-15T22:30:00-03:00: já é
+    // "amanhã" em UTC, mas ainda é "hoje" (2026-01-15) no horário de Brasília.
+    // Uma implementação baseada em now.toISOString().slice(0, 10) calcularia
+    // todayStr = "2026-01-16" e excluiria erroneamente um holding vencendo
+    // exatamente hoje (2026-01-15) do filtro `maturityDate >= todayStr`.
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/Sao_Paulo";
+    try {
+      const now = new Date("2026-01-16T01:30:00.000Z");
+      const result = computePatrimonySummary(
+        [
+          holding({
+            id: "h-today",
+            symbol: "CDB vence hoje",
+            maturityDate: "2026-01-15",
+            currentUnitValueCents: 1000,
+          }),
+        ],
+        [account({})],
+        [],
+        now,
+      );
+
+      expect(result.upcomingMaturities.map((m) => m.holdingId)).toContain(
+        "h-today",
+      );
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
+
   it("usa o maior last_valuation_at como lastUpdatedAt", () => {
     const result = computePatrimonySummary(
       [

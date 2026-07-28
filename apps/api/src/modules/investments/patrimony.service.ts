@@ -9,6 +9,7 @@ import type {
   PatrimonySummary,
   PatrimonyUpcomingMaturity,
 } from "@money-manager/types";
+import { toDateString } from "@money-manager/utils/installment-schedule";
 import { and, eq, isNull } from "drizzle-orm";
 
 type InvestmentHoldingRow = typeof investmentHoldings.$inferSelect;
@@ -73,8 +74,8 @@ export function computePatrimonySummary(
   maturityCutoff.setDate(
     maturityCutoff.getDate() + UPCOMING_MATURITY_WINDOW_DAYS,
   );
-  const todayStr = now.toISOString().slice(0, 10);
-  const cutoffStr = maturityCutoff.toISOString().slice(0, 10);
+  const todayStr = toDateString(now);
+  const cutoffStr = toDateString(maturityCutoff);
 
   const upcomingMaturities: PatrimonyUpcomingMaturity[] = holdings
     .filter(
