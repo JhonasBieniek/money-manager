@@ -8,3 +8,5 @@ export * from "./api/dashboard.js";
 export * from "./api/telegram.js";
 export * from "./api/credit-cards.js";
 export * from "./api/debts.js";
+export * from "./api/investments.js";
+export * from "./api/piggy-banks.js";
