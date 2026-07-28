@@ -331,7 +331,7 @@ export interface PatrimonyHistoryPoint {
 
 export interface BenchmarkComparisonPoint {
   referenceMonth: string;
-  patrimonyIndexed: number;          // 100 at period start
+  patrimonyIndexed: number | null;   // null if no snapshot exists for this month
   ipcaAccumulatedPct: number | null; // null if not yet cached for this month
   cdiAccumulatedPct: number | null;
 }
