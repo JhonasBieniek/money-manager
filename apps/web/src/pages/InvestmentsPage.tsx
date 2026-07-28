@@ -5,6 +5,9 @@ import type {
   PatrimonySummary,
   PiggyBank,
 } from "@money-manager/types";
+import { AllocationDonutChart } from "../components/features/investments/charts/allocation-donut-chart";
+import { BenchmarkComparisonChart } from "../components/features/investments/charts/benchmark-comparison-chart";
+import { PatrimonyEvolutionChart } from "../components/features/investments/charts/patrimony-evolution-chart";
 import { HoldingFormModal } from "../components/features/investments/holding-form-modal";
 import { InvestmentAccountFormModal } from "../components/features/investments/investment-account-form-modal";
 import { InvestmentAccountSection } from "../components/features/investments/investment-account-section";
@@ -48,6 +51,9 @@ export function InvestmentsPage() {
   const [transactionMode, setTransactionMode] = useState<
     "deposit" | "withdraw"
   >("deposit");
+
+  const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
+  const [registeringSnapshot, setRegisteringSnapshot] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -93,6 +99,14 @@ export function InvestmentsPage() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    // Backstop for days the scheduler hasn't run yet — best-effort, no
+    // loading state or error surfaced, matches spec §1.7/§2.
+    void apiFetch("/v1/patrimony/snapshots", { method: "POST" }).catch(() => {
+      /* daily scheduler remains the primary mechanism */
+    });
+  }, []);
 
   function openCreateAccount() {
     setEditingAccount(null);
@@ -169,6 +183,24 @@ export function InvestmentsPage() {
       alert(
         err instanceof Error ? err.message : "Erro ao alternar modo de cotação",
       );
+    }
+  }
+
+  async function handleRegisterSnapshot() {
+    setRegisteringSnapshot(true);
+    try {
+      const res = await apiFetch("/v1/patrimony/snapshots", {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Erro ao registrar patrimônio de hoje");
+      setSnapshotRefreshKey((k) => k + 1);
+      void loadAll();
+    } catch (err: unknown) {
+      alert(
+        err instanceof Error ? err.message : "Erro ao registrar patrimônio",
+      );
+    } finally {
+      setRegisteringSnapshot(false);
     }
   }
 
@@ -261,7 +293,28 @@ export function InvestmentsPage() {
         </p>
       ) : (
         <>
-          {summary ? <PatrimonySummaryCards summary={summary} /> : null}
+          {summary ? (
+            <div className="space-y-4 sm:space-y-6">
+              <PatrimonySummaryCards summary={summary} />
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+                <AllocationDonutChart buckets={summary.byAssetClass} />
+                <PatrimonyEvolutionChart refreshKey={snapshotRefreshKey} />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void handleRegisterSnapshot()}
+                  disabled={registeringSnapshot}
+                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-white/10 disabled:opacity-50"
+                >
+                  {registeringSnapshot
+                    ? "Registrando…"
+                    : "Registrar patrimônio hoje"}
+                </button>
+              </div>
+              <BenchmarkComparisonChart />
+            </div>
+          ) : null}
 
           {accounts.length === 0 ? (
             <div className="glass rounded-2xl p-8 text-center sm:rounded-3xl">
