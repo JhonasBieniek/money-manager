@@ -124,4 +124,21 @@ describe("refreshHoldingQuote", () => {
     const setCallArg = mockSet.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(setCallArg.currentUnitValueCents).toBeUndefined();
   });
+
+  it("registra um log de aviso no servidor quando o provider falha", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockGetCachedQuote.mockResolvedValue(null);
+    mockFetchQuote.mockRejectedValue(new Error("Brapi retornou status 500"));
+
+    try {
+      await refreshHoldingQuote(holding() as never, "on-demand");
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/\[quote-refresh\].*PETR4/),
+        "Brapi retornou status 500",
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });

@@ -124,6 +124,7 @@ export async function refreshHoldingQuote(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Erro desconhecido ao buscar cotação";
+    console.warn(`[quote-refresh] quote failed for ${holding.symbol}`, message);
     return applyQuoteToHolding(holding, null, pricingSource, null, message);
   }
 }

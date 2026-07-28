@@ -40,7 +40,9 @@ export function createCoinGeckoQuoteProvider(
 
       let response: Response;
       try {
-        response = await fetchFn(url.toString());
+        response = await fetchFn(url.toString(), {
+          signal: AbortSignal.timeout(8000),
+        });
       } catch {
         throw new QuoteProviderError(`Falha ao consultar CoinGecko para ${id}`);
       }

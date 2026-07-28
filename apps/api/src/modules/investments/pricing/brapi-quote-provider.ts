@@ -28,7 +28,7 @@ export function createBrapiQuoteProvider(
 
       let response: Response;
       try {
-        response = await fetchFn(url);
+        response = await fetchFn(url, { signal: AbortSignal.timeout(8000) });
       } catch {
         throw new QuoteProviderError(
           `Falha ao consultar Brapi para ${normalized}`,

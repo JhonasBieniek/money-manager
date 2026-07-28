@@ -49,6 +49,7 @@ describe("createBrapiQuoteProvider", () => {
     expect(result.unitValueCents).toBe(3842);
     expect(fetchFn).toHaveBeenCalledWith(
       expect.stringContaining("https://brapi.dev/api/quote/PETR4"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
