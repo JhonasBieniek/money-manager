@@ -5,7 +5,7 @@ import type {
   PiggyBankTransactionType,
 } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import {
   BadRequestError,
   NotFoundError,
@@ -53,6 +53,11 @@ function toPiggyBankTransaction(
   };
 }
 
+// NOTE: no longer called from applyTransaction below — the balance write
+// path now delegates the arithmetic (and the insufficient-balance check) to
+// the database itself via an atomic UPDATE, to avoid a lost-update race
+// under concurrent deposit/withdraw requests. Kept exported/unit-tested as a
+// documented reference for the same balance rules the DB now enforces.
 export function resolveBalanceAfterTransaction(
   currentAmountCents: number,
   type: PiggyBankTransactionType,
@@ -191,19 +196,52 @@ async function applyTransaction(
   type: PiggyBankTransactionType,
   input: PiggyBankTransactionBody,
 ): Promise<PiggyBank> {
-  const row = await getPiggyBankRow(userId, piggyBankId);
-  const nextBalance = resolveBalanceAfterTransaction(
-    row.currentAmountCents,
-    type,
-    input.amountCents,
-  );
+  // Existence/ownership check only — the actual balance mutation below is
+  // computed atomically by the database (not from this row) to avoid a
+  // lost-update race between concurrent deposit/withdraw requests.
+  await getPiggyBankRow(userId, piggyBankId);
   const now = new Date();
 
   await getDb().transaction(async (tx) => {
-    await tx
-      .update(piggyBanks)
-      .set({ currentAmountCents: nextBalance, updatedAt: now })
-      .where(eq(piggyBanks.id, piggyBankId));
+    if (type === "deposit") {
+      await tx
+        .update(piggyBanks)
+        .set({
+          currentAmountCents: sql`${piggyBanks.currentAmountCents} + ${input.amountCents}`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(piggyBanks.id, piggyBankId),
+            eq(piggyBanks.userId, userId),
+            isNull(piggyBanks.deletedAt),
+          ),
+        );
+    } else {
+      const [updated] = await tx
+        .update(piggyBanks)
+        .set({
+          currentAmountCents: sql`${piggyBanks.currentAmountCents} - ${input.amountCents}`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(piggyBanks.id, piggyBankId),
+            eq(piggyBanks.userId, userId),
+            isNull(piggyBanks.deletedAt),
+            gte(piggyBanks.currentAmountCents, input.amountCents),
+          ),
+        )
+        .returning({ id: piggyBanks.id });
+
+      // Zero rows affected here means the WHERE guard failed. Existence and
+      // ownership were already confirmed by getPiggyBankRow above, so in
+      // practice this means the balance check (currentAmountCents >=
+      // amountCents) failed, i.e. insufficient funds.
+      if (!updated) {
+        throw new BadRequestError("Saldo insuficiente no cofrinho");
+      }
+    }
 
     await tx.insert(piggyBankTransactions).values({
       id: newId(),
