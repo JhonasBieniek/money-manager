@@ -3,17 +3,22 @@ import {
   investmentAccounts,
   investmentHoldings,
   investmentQuoteCache,
+  investmentSnapshots,
   piggyBanks,
 } from "@money-manager/db";
 import { ASSET_CLASS_LABELS } from "@money-manager/types";
 import type {
   PatrimonyAccountBucket,
   PatrimonyAssetClassBucket,
+  PatrimonyHistoryPoint,
+  PatrimonySnapshot,
   PatrimonySummary,
   PatrimonyUpcomingMaturity,
 } from "@money-manager/types";
+import { newId } from "@money-manager/utils";
 import { toDateString } from "@money-manager/utils/installment-schedule";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, gte, isNull } from "drizzle-orm";
+import { todayBrtString } from "./brt-date.js";
 
 type InvestmentHoldingRow = typeof investmentHoldings.$inferSelect;
 type InvestmentAccountRow = typeof investmentAccounts.$inferSelect;
@@ -194,4 +199,82 @@ export async function getPatrimonySummary(
     quoteCacheRows,
     new Date(),
   );
+}
+
+type InvestmentSnapshotRow = typeof investmentSnapshots.$inferSelect;
+
+function toPatrimonySnapshot(row: InvestmentSnapshotRow): PatrimonySnapshot {
+  return {
+    id: row.id,
+    userId: row.userId,
+    snapshotDate: row.snapshotDate,
+    totalAssetsCents: row.totalAssetsCents,
+    byAssetClass: row.byAssetClass as PatrimonyAssetClassBucket[],
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function registerSnapshot(
+  userId: string,
+  now: Date,
+): Promise<PatrimonySnapshot> {
+  const summary = await getPatrimonySummary(userId);
+  const snapshotDate = todayBrtString(now);
+  const db = getDb();
+
+  await db
+    .insert(investmentSnapshots)
+    .values({
+      id: newId(),
+      userId,
+      snapshotDate,
+      totalAssetsCents: summary.totalAssetsCents,
+      byAssetClass: summary.byAssetClass,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [investmentSnapshots.userId, investmentSnapshots.snapshotDate],
+      set: {
+        totalAssetsCents: summary.totalAssetsCents,
+        byAssetClass: summary.byAssetClass,
+      },
+    });
+
+  const [row] = await db
+    .select()
+    .from(investmentSnapshots)
+    .where(
+      and(
+        eq(investmentSnapshots.userId, userId),
+        eq(investmentSnapshots.snapshotDate, snapshotDate),
+      ),
+    )
+    .limit(1);
+
+  return toPatrimonySnapshot(row!);
+}
+
+export async function getPatrimonyHistory(
+  userId: string,
+  months: number,
+): Promise<PatrimonyHistoryPoint[]> {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const cutoffStr = toDateString(cutoff);
+
+  const rows = await getDb()
+    .select({
+      snapshotDate: investmentSnapshots.snapshotDate,
+      totalAssetsCents: investmentSnapshots.totalAssetsCents,
+    })
+    .from(investmentSnapshots)
+    .where(
+      and(
+        eq(investmentSnapshots.userId, userId),
+        gte(investmentSnapshots.snapshotDate, cutoffStr),
+      ),
+    )
+    .orderBy(asc(investmentSnapshots.snapshotDate));
+
+  return rows;
 }
