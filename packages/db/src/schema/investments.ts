@@ -3,9 +3,11 @@ import {
   boolean,
   date,
   index,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -109,4 +111,18 @@ export const investmentHoldings = pgTable(
     index("investment_holdings_account_id_idx").on(t.accountId),
     index("investment_holdings_user_id_idx").on(t.userId),
   ],
+);
+
+export const investmentQuoteCache = pgTable(
+  "investment_quote_cache",
+  {
+    symbol: text("symbol").notNull(),
+    assetClass: assetClassEnum("asset_class").notNull(),
+    unitValueCents: bigint("unit_value_cents", { mode: "number" }).notNull(),
+    pricingSource: pricingSourceEnum("pricing_source").notNull(),
+    quotedAt: timestamp("quoted_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    rawResponse: jsonb("raw_response"),
+  },
+  (t) => [primaryKey({ columns: [t.symbol, t.assetClass] })],
 );
