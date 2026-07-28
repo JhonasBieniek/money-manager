@@ -56,11 +56,13 @@ export function createBcbProvider(fetchFn: typeof fetch = fetch) {
       }
 
       return (data as BcbRawPoint[]).map((point) => {
-        const value = Number(point?.valor);
         const dateFormatRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+        const value = Number(point?.valor);
         if (
           typeof point?.data !== "string" ||
           !dateFormatRegex.test(point.data) ||
+          typeof point?.valor !== "string" ||
+          point.valor.trim() === "" ||
           !Number.isFinite(value)
         ) {
           throw new BcbProviderError(

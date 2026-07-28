@@ -82,6 +82,17 @@ describe("createBcbProvider", () => {
     );
   });
 
+  it("lança BcbProviderError quando um ponto tem valor vazio (observação ainda não publicada)", async () => {
+    const fetchFn = jest.fn(async () =>
+      fakeResponse([{ data: "01/04/2026", valor: "" }]),
+    );
+    const provider = createBcbProvider(fetchFn as unknown as typeof fetch);
+
+    await expect(provider.fetchSeries(433, 3)).rejects.toThrow(
+      BcbProviderError,
+    );
+  });
+
   it("lança BcbProviderError quando um ponto tem data em formato inválido", async () => {
     const fetchFn = jest.fn(async () =>
       fakeResponse([{ data: "invalid", valor: "1.0" }]),
