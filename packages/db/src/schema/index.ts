@@ -14,3 +14,5 @@ export * from "./telegram-bot-sessions.js";
 export * from "./credit-cards.js";
 export * from "./credit-card-statements.js";
 export * from "./debts.js";
+export * from "./investments.js";
+export * from "./piggy-banks.js";
