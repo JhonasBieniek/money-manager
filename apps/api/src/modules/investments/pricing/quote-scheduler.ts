@@ -44,11 +44,18 @@ export function startQuoteScheduler(): QuoteScheduler {
   const tick = async (): Promise<void> => {
     const now = new Date();
     if (!hasDailyTriggerPassed(now, lastRunDate)) return;
-    lastRunDate = todayBrtString(now);
 
-    const allUsers = await getDb().select({ id: users.id }).from(users);
-    for (const user of allUsers) {
-      await refreshAllRvHoldingsForUser(user.id, now);
+    try {
+      const allUsers = await getDb().select({ id: users.id }).from(users);
+      for (const user of allUsers) {
+        await refreshAllRvHoldingsForUser(user.id, now);
+      }
+      lastRunDate = todayBrtString(now);
+      console.log(
+        `[quote-scheduler] daily refresh sweep completed for ${allUsers.length} user(s)`,
+      );
+    } catch (err) {
+      console.error("[quote-scheduler] daily refresh sweep failed", err);
     }
   };
 
