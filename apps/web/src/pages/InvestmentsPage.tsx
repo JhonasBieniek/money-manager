@@ -320,8 +320,17 @@ export function InvestmentsPage() {
         accountId={holdingAccountId}
         holding={editingHolding}
         onClose={() => setHoldingFormOpen(false)}
-        onSaved={() => {
+        onSaved={(createdHolding) => {
           setHoldingFormOpen(false);
+          if (
+            createdHolding &&
+            createdHolding.incomeType === "variable_income" &&
+            createdHolding.pricingSource !== "manual"
+          ) {
+            // Dispara a primeira busca de cotação imediatamente, em vez de
+            // esperar a próxima varredura do scheduler (até 24h depois).
+            void handleRefreshHoldingQuote(createdHolding.id);
+          }
           void loadAll();
         }}
       />

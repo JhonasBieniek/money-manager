@@ -13,7 +13,7 @@ interface HoldingFormModalProps {
   accountId: string | null;
   holding: InvestmentHolding | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (createdHolding?: InvestmentHolding) => void;
 }
 
 const RV_ASSET_CLASSES = ASSET_CLASSES.filter(
@@ -130,7 +130,12 @@ export function HoldingFormModal({
         const data = (await res.json()) as { error?: string };
         throw new Error(data.error ?? "Erro ao salvar posição");
       }
-      onSaved();
+      if (isEditing) {
+        onSaved();
+      } else {
+        const created = (await res.json()) as InvestmentHolding;
+        onSaved(created);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao salvar");
     } finally {
