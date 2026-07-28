@@ -4,6 +4,7 @@ import {
   createInvestmentHoldingBodySchema,
   investmentHoldingIdParamsSchema,
   listInvestmentHoldingsQuerySchema,
+  updateHoldingQuoteModeBodySchema,
   updateHoldingValuationBodySchema,
   updateInvestmentHoldingBodySchema,
 } from "./investment-holdings.schema.js";
@@ -65,4 +66,30 @@ export async function remove(req: Request, res: Response): Promise<void> {
   const { id } = investmentHoldingIdParamsSchema.parse(req.params);
   await investmentHoldingsService.deleteInvestmentHolding(getUserId(req), id);
   res.status(204).send();
+}
+
+export async function updateQuoteMode(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { id } = investmentHoldingIdParamsSchema.parse(req.params);
+  const body = updateHoldingQuoteModeBodySchema.parse(req.body);
+  const holding = await investmentHoldingsService.updateHoldingQuoteMode(
+    getUserId(req),
+    id,
+    body,
+  );
+  res.status(200).json(holding);
+}
+
+export async function refreshQuote(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { id } = investmentHoldingIdParamsSchema.parse(req.params);
+  const holding = await investmentHoldingsService.refreshHoldingQuoteById(
+    getUserId(req),
+    id,
+  );
+  res.status(200).json(holding);
 }

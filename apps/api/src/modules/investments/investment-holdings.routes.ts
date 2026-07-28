@@ -29,6 +29,16 @@ investmentHoldingsRoutes.patch(
   authenticate,
   investmentHoldingsController.updateValuation,
 );
+investmentHoldingsRoutes.patch(
+  "/:id/quote-mode",
+  authenticate,
+  investmentHoldingsController.updateQuoteMode,
+);
+investmentHoldingsRoutes.post(
+  "/:id/refresh-quote",
+  authenticate,
+  investmentHoldingsController.refreshQuote,
+);
 investmentHoldingsRoutes.delete(
   "/:id",
   authenticate,

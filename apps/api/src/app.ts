@@ -14,6 +14,7 @@ import { goalsRoutes } from "./modules/goals/goals.routes.js";
 import { incomesRoutes } from "./modules/incomes/incomes.routes.js";
 import { investmentAccountsRoutes } from "./modules/investments/investment-accounts.routes.js";
 import { investmentHoldingsRoutes } from "./modules/investments/investment-holdings.routes.js";
+import { investmentsRoutes } from "./modules/investments/investments.routes.js";
 import { patrimonyRoutes } from "./modules/investments/patrimony.routes.js";
 import { piggyBanksRoutes } from "./modules/piggy-banks/piggy-banks.routes.js";
 import { tagsRoutes } from "./modules/tags/tags.routes.js";
@@ -75,6 +76,7 @@ export function createApp() {
   app.use("/v1/debts", debtsRoutes);
   app.use("/v1/investment-accounts", investmentAccountsRoutes);
   app.use("/v1/investment-holdings", investmentHoldingsRoutes);
+  app.use("/v1/investments", investmentsRoutes);
   app.use("/v1/patrimony", patrimonyRoutes);
   app.use("/v1/piggy-banks", piggyBanksRoutes);
   app.use("/v1/expenses", expensesRoutes);
