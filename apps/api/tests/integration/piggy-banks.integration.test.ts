@@ -45,6 +45,23 @@ describeWithDb("piggy banks integration", () => {
     expect(res.body.targetAmountCents).toBeNull();
   });
 
+  it("GET /v1/piggy-banks/:id retorna 404 para cofrinho de outro usuário", async () => {
+    const { accessToken: tokenA } = await registerUser(app);
+    const { accessToken: tokenB } = await registerUser(app);
+
+    const createRes = await request(app)
+      .post("/v1/piggy-banks")
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ name: "Cofrinho privado" });
+
+    const getRes = await request(app)
+      .get(`/v1/piggy-banks/${createRes.body.id}`)
+      .set("Authorization", `Bearer ${tokenB}`);
+
+    expect(getRes.status).toBe(404);
+    expect(getRes.body.error).toBe("Cofrinho não encontrado");
+  });
+
   it("POST /v1/piggy-banks/:id/deposit incrementa o saldo", async () => {
     const { accessToken } = await registerUser(app);
     const createRes = await request(app)
