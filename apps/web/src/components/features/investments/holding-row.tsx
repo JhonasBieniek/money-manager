@@ -86,14 +86,16 @@ export function HoldingRow({
       <div className="flex shrink-0 items-center gap-2">
         {isRv && holding.pricingSource !== "manual" ? (
           <>
-            <button
-              type="button"
-              onClick={() => onRefreshQuote(holding.id)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-400 transition hover:bg-white/10 hover:text-emerald-400"
-              aria-label="Atualizar cotação"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
+            {!holding.manualOverride ? (
+              <button
+                type="button"
+                onClick={() => onRefreshQuote(holding.id)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-400 transition hover:bg-white/10 hover:text-emerald-400"
+                aria-label="Atualizar cotação"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => onToggleOverride(holding.id, !holding.manualOverride)}
