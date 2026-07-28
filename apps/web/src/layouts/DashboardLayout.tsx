@@ -11,6 +11,7 @@ import {
   Tags,
   Target,
   TrendingUp,
+  Wallet,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -33,6 +34,7 @@ const navItems = [
   { name: "Metas", href: "/dashboard/goals", icon: Target },
   { name: "Cartões", href: "/dashboard/cards", icon: CreditCard },
   { name: "Dívidas", href: "/dashboard/debts", icon: Landmark },
+  { name: "Patrimônio", href: "/dashboard/investments", icon: Wallet },
   { name: "Tags", href: "/dashboard/tags", icon: Tags },
   { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
@@ -42,7 +44,7 @@ const bottomNavItems = navItems.filter((item) =>
 );
 
 const drawerOnlyItems = navItems.filter((item) =>
-  ["Tags", "Configurações"].includes(item.name),
+  ["Patrimônio", "Tags", "Configurações"].includes(item.name),
 );
 
 function getPageTitle(pathname: string): string {
@@ -51,6 +53,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/dashboard/goals")) return "Metas";
   if (pathname.startsWith("/dashboard/cards")) return "Cartões";
   if (pathname.startsWith("/dashboard/debts")) return "Dívidas";
+  if (pathname.startsWith("/dashboard/investments")) return "Patrimônio";
   if (pathname.startsWith("/dashboard/expenses")) return "Despesas";
   if (pathname.startsWith("/dashboard/incomes")) return "Receitas";
   return "Resumo";

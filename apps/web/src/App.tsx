@@ -10,6 +10,7 @@ import { EditIncomePage } from "./pages/EditIncomePage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { GoalsPage } from "./pages/GoalsPage";
 import { IncomesPage } from "./pages/IncomesPage";
+import { InvestmentsPage } from "./pages/InvestmentsPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewExpensePage } from "./pages/NewExpensePage";
@@ -54,6 +55,7 @@ export function App() {
           <Route path="goals" element={<GoalsPage />} />
           <Route path="cards" element={<CreditCardsPage />} />
           <Route path="debts" element={<DebtsPage />} />
+          <Route path="investments" element={<InvestmentsPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
           <Route path="expenses/new" element={<NewExpensePage />} />
           <Route path="expenses/:id/edit" element={<EditExpensePage />} />
