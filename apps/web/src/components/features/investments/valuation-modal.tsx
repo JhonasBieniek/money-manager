@@ -18,6 +18,13 @@ function formatMoneyDisplay(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
 
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
 export function ValuationModal({
   open,
   holding,
@@ -37,6 +44,14 @@ export function ValuationModal({
   if (!open || !holding) return null;
 
   const currentHolding = holding;
+  const isRv = holding.incomeType === "variable_income";
+  const parsedForDisplay = parseMoneyAmountInput(value);
+  const unitCentsForDisplay = Number.isFinite(parsedForDisplay)
+    ? Math.round(parsedForDisplay * 100)
+    : 0;
+  const totalCentsForDisplay = Math.round(
+    Number(holding.quantity) * unitCentsForDisplay,
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +102,7 @@ export function ValuationModal({
             id="valuation-form-title"
             className="text-xl font-bold text-white"
           >
-            Atualizar valor
+            {isRv ? "Valor unitário" : "Atualizar valor"}
           </h2>
           <button
             type="button"
@@ -102,7 +117,7 @@ export function ValuationModal({
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
           <div>
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
-              {holding.symbol}
+              {isRv ? `${holding.symbol} · valor por unidade` : holding.symbol}
             </label>
             <div className="flex items-center gap-2 rounded-2xl border border-white/5 bg-white/5 px-4 py-3">
               <span className="text-zinc-500">R$</span>
@@ -112,6 +127,12 @@ export function ValuationModal({
                 className="!rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-base !font-semibold"
               />
             </div>
+            {isRv ? (
+              <p className="mt-2 text-xs text-zinc-500">
+                {holding.quantity} × {formatCurrency(unitCentsForDisplay)} ={" "}
+                {formatCurrency(totalCentsForDisplay)}
+              </p>
+            ) : null}
           </div>
 
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
