@@ -32,8 +32,6 @@ function cacheTtlMs(now: Date): number {
     : CACHE_TTL_OFF_HOURS_MS;
 }
 
-const router = createQuoteRouter();
-
 async function applyQuoteToHolding(
   holding: InvestmentHoldingRow,
   unitValueCents: number | null,
@@ -72,7 +70,7 @@ export async function refreshHoldingQuote(
     return holding;
   }
 
-  const provider = router.getProvider(holding.assetClass);
+  const provider = createQuoteRouter().getProvider(holding.assetClass);
   if (!provider) {
     return holding;
   }

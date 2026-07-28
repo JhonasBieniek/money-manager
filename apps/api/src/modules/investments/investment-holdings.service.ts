@@ -22,6 +22,11 @@ import type {
 
 type InvestmentHoldingRow = typeof investmentHoldings.$inferSelect;
 
+function trimTrailingZeros(numericString: string): string {
+  if (!numericString.includes(".")) return numericString;
+  return numericString.replace(/\.?0+$/, "");
+}
+
 function toInvestmentHolding(row: InvestmentHoldingRow): InvestmentHolding {
   return {
     id: row.id,
@@ -30,7 +35,7 @@ function toInvestmentHolding(row: InvestmentHoldingRow): InvestmentHolding {
     symbol: row.symbol,
     incomeType: row.incomeType,
     assetClass: row.assetClass,
-    quantity: row.quantity,
+    quantity: trimTrailingZeros(row.quantity),
     averageCostCents: row.averageCostCents,
     currentUnitValueCents: row.currentUnitValueCents,
     maturityDate: row.maturityDate,
