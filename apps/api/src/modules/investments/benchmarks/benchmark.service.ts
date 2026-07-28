@@ -136,8 +136,9 @@ export async function getBenchmarkComparison(
     if (ipcaRate !== undefined) ipcaRatesSoFar.push(ipcaRate);
     if (cdiRate !== undefined) cdiRatesSoFar.push(cdiRate);
 
-    const snapshotForMonth = snapshots.find((s) =>
-      s.snapshotDate.startsWith(month),
+    const monthPrefix = monthKey(month);
+    const snapshotForMonth = snapshots.find(
+      (s) => monthKey(s.snapshotDate) === monthPrefix,
     );
     const patrimonyIndexed =
       startCents && snapshotForMonth
