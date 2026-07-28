@@ -36,6 +36,8 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      BRAPI_TOKEN: ${BRAPI_TOKEN:-}
+      COINGECKO_API_KEY: ${COINGECKO_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

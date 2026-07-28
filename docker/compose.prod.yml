@@ -29,6 +29,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
       RUN_DB_MIGRATIONS: ${RUN_DB_MIGRATIONS:-true}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      BRAPI_TOKEN: ${BRAPI_TOKEN:-}
+      COINGECKO_API_KEY: ${COINGECKO_API_KEY:-}
     networks:
       - internal
       - portfolio
