@@ -30,6 +30,9 @@ function unrealizedPnlCents(holding: InvestmentHolding): number | null {
 
 function isQuoteErrorVisible(holding: InvestmentHolding): boolean {
   if (holding.lastQuoteError === null) return false;
+  if (holding.manualOverride || holding.pricingSource === "manual") {
+    return false;
+  }
   if (holding.lastQuoteError === PENDING_QUOTE_MESSAGE) return true;
   const age = Date.now() - new Date(holding.lastValuationAt).getTime();
   return age > STALE_ERROR_THRESHOLD_MS;
