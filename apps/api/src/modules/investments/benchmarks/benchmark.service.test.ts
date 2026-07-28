@@ -23,8 +23,9 @@ describe("compoundAccumulatedPct", () => {
   });
 
   it("composição de múltiplos meses dentro do mesmo ano", () => {
-    // (1.0067 * 1.0058) - 1 ≈ 1.2539%
-    expect(compoundAccumulatedPct([0.67, 0.58])).toBeCloseTo(1.25, 1);
+    // (1.10 * 1.10) - 1 = 0.21 → 21%
+    // If naively summed, 10 + 10 = 20% (would fail this test)
+    expect(compoundAccumulatedPct([10, 10])).toBeCloseTo(21, 0);
   });
 
   it("retorna 0 para lista vazia", () => {
