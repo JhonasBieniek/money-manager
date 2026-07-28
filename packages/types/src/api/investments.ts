@@ -175,7 +175,7 @@ export interface PatrimonyHistoryPoint {
 
 export interface BenchmarkComparisonPoint {
   referenceMonth: string;
-  patrimonyIndexed: number;
+  patrimonyIndexed: number | null;
   ipcaAccumulatedPct: number | null;
   cdiAccumulatedPct: number | null;
 }

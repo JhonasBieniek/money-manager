@@ -137,14 +137,15 @@ export async function getBenchmarkComparison(
     if (cdiRate !== undefined) cdiRatesSoFar.push(cdiRate);
 
     const monthPrefix = monthKey(month);
-    const snapshotForMonth = snapshots.find(
+    const monthSnapshots = snapshots.filter(
       (s) => monthKey(s.snapshotDate) === monthPrefix,
     );
+    const snapshotForMonth = monthSnapshots.at(-1);
     const patrimonyIndexed =
       startCents && snapshotForMonth
         ? Math.round((snapshotForMonth.totalAssetsCents / startCents) * 10000) /
           100
-        : 100;
+        : null;
 
     return {
       referenceMonth: month,
