@@ -156,3 +156,32 @@ export interface PatrimonySummary {
   quotesStale: boolean;
   upcomingMaturities: PatrimonyUpcomingMaturity[];
 }
+
+export type BenchmarkType = "ipca" | "cdi";
+
+export interface PatrimonySnapshot {
+  id: string;
+  userId: string;
+  snapshotDate: string;
+  totalAssetsCents: number;
+  byAssetClass: PatrimonyAssetClassBucket[];
+  createdAt: string;
+}
+
+export interface PatrimonyHistoryPoint {
+  snapshotDate: string;
+  totalAssetsCents: number;
+}
+
+export interface BenchmarkComparisonPoint {
+  referenceMonth: string;
+  patrimonyIndexed: number;
+  ipcaAccumulatedPct: number | null;
+  cdiAccumulatedPct: number | null;
+}
+
+export interface BenchmarkComparison {
+  series: BenchmarkComparisonPoint[];
+  portfolioReturnPct: number | null;
+  cdiReturnPct: number | null;
+}
