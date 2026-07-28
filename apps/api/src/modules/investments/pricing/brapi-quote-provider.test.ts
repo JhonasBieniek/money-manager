@@ -86,4 +86,19 @@ describe("createBrapiQuoteProvider", () => {
       QuoteProviderError,
     );
   });
+
+  it("lança QuoteProviderError quando a resposta não é JSON válido", async () => {
+    process.env.BRAPI_TOKEN = "test-token";
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError("Unexpected token");
+      },
+    });
+    const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
+
+    await expect(provider.fetchQuote("PETR4")).rejects.toThrow(
+      QuoteProviderError,
+    );
+  });
 });

@@ -51,7 +51,15 @@ export function createCoinGeckoQuoteProvider(
         );
       }
 
-      const data = (await response.json()) as CoinGeckoResponse;
+      let data: CoinGeckoResponse;
+      try {
+        data = (await response.json()) as CoinGeckoResponse;
+      } catch {
+        throw new QuoteProviderError(
+          `CoinGecko retornou resposta inválida para ${id}`,
+        );
+      }
+
       const price = data[id]?.brl;
       if (typeof price !== "number" || !Number.isFinite(price)) {
         throw new QuoteProviderError(

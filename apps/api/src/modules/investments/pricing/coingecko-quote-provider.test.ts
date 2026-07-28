@@ -84,4 +84,31 @@ describe("createCoinGeckoQuoteProvider", () => {
       QuoteProviderError,
     );
   });
+
+  it("lança QuoteProviderError quando fetchFn rejeita (erro de rede)", async () => {
+    const fetchFn = jest.fn().mockRejectedValue(new Error("network down"));
+    const provider = createCoinGeckoQuoteProvider(
+      fetchFn as unknown as typeof fetch,
+    );
+
+    await expect(provider.fetchQuote("BTC")).rejects.toThrow(
+      QuoteProviderError,
+    );
+  });
+
+  it("lança QuoteProviderError quando a resposta não é JSON válido", async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError("Unexpected token");
+      },
+    });
+    const provider = createCoinGeckoQuoteProvider(
+      fetchFn as unknown as typeof fetch,
+    );
+
+    await expect(provider.fetchQuote("BTC")).rejects.toThrow(
+      QuoteProviderError,
+    );
+  });
 });

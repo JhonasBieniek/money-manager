@@ -41,7 +41,15 @@ export function createBrapiQuoteProvider(
         );
       }
 
-      const data = (await response.json()) as BrapiQuoteResponse;
+      let data: BrapiQuoteResponse;
+      try {
+        data = (await response.json()) as BrapiQuoteResponse;
+      } catch {
+        throw new QuoteProviderError(
+          `Brapi retornou resposta inválida para ${normalized}`,
+        );
+      }
+
       const price = data.results?.[0]?.regularMarketPrice;
       if (typeof price !== "number" || !Number.isFinite(price)) {
         throw new QuoteProviderError(
