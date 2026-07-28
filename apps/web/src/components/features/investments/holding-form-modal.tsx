@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { InvestmentHolding } from "@money-manager/types";
+import type { AssetClass, IncomeType, InvestmentHolding } from "@money-manager/types";
+import { ASSET_CLASSES, ASSET_CLASS_LABELS } from "@money-manager/types";
 import { apiFetch } from "../../../lib/api";
 import {
   MoneyAmountInput,
@@ -15,6 +16,10 @@ interface HoldingFormModalProps {
   onSaved: () => void;
 }
 
+const RV_ASSET_CLASSES = ASSET_CLASSES.filter(
+  (c): c is Exclude<AssetClass, "fixed_income"> => c !== "fixed_income",
+);
+
 function formatMoneyDisplay(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
@@ -28,8 +33,12 @@ export function HoldingFormModal({
 }: HoldingFormModalProps) {
   const isEditing = holding !== null;
 
+  const [incomeType, setIncomeType] = useState<IncomeType>("fixed_income");
   const [symbol, setSymbol] = useState("");
   const [currentValue, setCurrentValue] = useState("");
+  const [assetClass, setAssetClass] = useState<AssetClass>("stocks");
+  const [quantity, setQuantity] = useState("");
+  const [averageCost, setAverageCost] = useState("");
   const [maturityDate, setMaturityDate] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,13 +47,20 @@ export function HoldingFormModal({
   useEffect(() => {
     if (!open) return;
     if (holding) {
+      setIncomeType(holding.incomeType);
       setSymbol(holding.symbol);
       setCurrentValue(formatMoneyDisplay(holding.currentUnitValueCents / 100));
+      setAssetClass(holding.assetClass ?? "stocks");
+      setQuantity(holding.quantity);
       setMaturityDate(holding.maturityDate ?? "");
       setNotes(holding.notes ?? "");
     } else {
+      setIncomeType("fixed_income");
       setSymbol("");
       setCurrentValue("");
+      setAssetClass("stocks");
+      setQuantity("");
+      setAverageCost("");
       setMaturityDate("");
       setNotes("");
     }
@@ -53,16 +69,28 @@ export function HoldingFormModal({
 
   if (!open) return null;
 
+  const isRv = incomeType === "variable_income";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const valueParsed = parseMoneyAmountInput(currentValue);
-    if (!isEditing && (!Number.isFinite(valueParsed) || valueParsed < 0)) {
-      setError("Informe um valor válido.");
-      setLoading(false);
-      return;
+    if (!isEditing && !isRv) {
+      const valueParsed = parseMoneyAmountInput(currentValue);
+      if (!Number.isFinite(valueParsed) || valueParsed < 0) {
+        setError("Informe um valor válido.");
+        setLoading(false);
+        return;
+      }
+    }
+    if (!isEditing && isRv) {
+      const quantityParsed = Number(quantity);
+      if (!Number.isFinite(quantityParsed) || quantityParsed <= 0) {
+        setError("Informe uma quantidade válida.");
+        setLoading(false);
+        return;
+      }
     }
 
     try {
@@ -80,7 +108,20 @@ export function HoldingFormModal({
             body: JSON.stringify({
               accountId,
               symbol: symbol.trim(),
-              currentUnitValueCents: Math.round(valueParsed * 100),
+              incomeType,
+              ...(isRv
+                ? {
+                    assetClass,
+                    quantity: Number(quantity),
+                    averageCostCents: averageCost
+                      ? Math.round(parseMoneyAmountInput(averageCost) * 100)
+                      : null,
+                  }
+                : {
+                    currentUnitValueCents: Math.round(
+                      parseMoneyAmountInput(currentValue) * 100,
+                    ),
+                  }),
               maturityDate: maturityDate || null,
               notes: notes.trim() || null,
             }),
@@ -120,21 +161,53 @@ export function HoldingFormModal({
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
+          {!isEditing ? (
+            <div>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Tipo
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIncomeType("fixed_income")}
+                  className={`flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                    !isRv
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-white/5 bg-white/5 text-zinc-400"
+                  }`}
+                >
+                  Renda fixa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIncomeType("variable_income")}
+                  className={`flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                    isRv
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-white/5 bg-white/5 text-zinc-400"
+                  }`}
+                >
+                  Renda variável
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Nome
+              {isRv ? "Ticker" : "Nome"}
             </label>
             <input
               type="text"
               required
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
-              placeholder="Ex.: CDB Banco X"
+              placeholder={isRv ? "Ex.: PETR4" : "Ex.: CDB Banco X"}
               className="w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-white outline-none focus:ring-1 focus:ring-emerald-500/30"
             />
           </div>
 
-          {!isEditing ? (
+          {!isEditing && !isRv ? (
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Valor atual
@@ -148,6 +221,58 @@ export function HoldingFormModal({
                 />
               </div>
             </div>
+          ) : null}
+
+          {!isEditing && isRv ? (
+            <>
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  Classe do ativo
+                </label>
+                <select
+                  value={assetClass}
+                  onChange={(e) => setAssetClass(e.target.value as AssetClass)}
+                  className="w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-white outline-none focus:ring-1 focus:ring-emerald-500/30"
+                >
+                  {RV_ASSET_CLASSES.map((c) => (
+                    <option key={c} value={c}>
+                      {ASSET_CLASS_LABELS[c]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  Quantidade
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="any"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="Ex.: 100"
+                  className="w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-white outline-none focus:ring-1 focus:ring-emerald-500/30"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  Preço médio (opcional)
+                </label>
+                <div className="flex items-center gap-2 rounded-2xl border border-white/5 bg-white/5 px-4 py-3">
+                  <span className="text-zinc-500">R$</span>
+                  <MoneyAmountInput
+                    value={averageCost}
+                    onChange={setAverageCost}
+                    className="!rounded-none !border-0 !bg-transparent !px-0 !py-0 !text-base !font-semibold"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">
+                A cotação inicial é buscada automaticamente após criar a posição.
+              </p>
+            </>
           ) : null}
 
           <div>
