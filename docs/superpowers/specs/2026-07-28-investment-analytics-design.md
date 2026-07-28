@@ -158,8 +158,8 @@ class on any failure (network, non-200, bad shape).
 
 ```typescript
 export interface BcbSeriesPoint {
-  date: string;       // "YYYY-MM-01", normalized from BCB's "DD/MM/AAAA"
-  value: number;       // raw percentage from the API, un-compounded
+  date: string;   // "YYYY-MM-DD", normalized from BCB's "DD/MM/AAAA" verbatim — NOT forced to day 1
+  value: number;  // raw percentage from the API, un-compounded
 }
 
 export class BcbProviderError extends Error {}
@@ -173,6 +173,13 @@ export function createBcbProvider(fetchFn: typeof fetch = fetch) {
 
 Series codes are constants owned by `benchmark.service.ts`, not hardcoded
 in the provider (the provider is generic over any BCB SGS series code).
+The provider stays domain-ignorant on purpose: IPCA (série 433) happens to
+return one point already dated the 1st of each month, but CDI (série 4389)
+returns **daily**-dated points (confirmed by the live check above) — the
+provider passes every point through unchanged, and `benchmark.service.ts`
+(§1.2, below) is what knows to reduce a series down to one point per
+calendar month before storing into `benchmark_rates`, whose
+`reference_month` is always day 1.
 
 **`benchmark.service.ts`** — the compounding math and orchestration:
 
@@ -188,14 +195,20 @@ export async function getBenchmarkComparison(
 ```
 
 `refreshBenchmarks`: fetches ~14 months of both series (comfortably covers
-a trailing-12-month window with margin for the weekly refresh lag), and
-for each month independently — no cross-month state — converts that
-month's raw BCB value into `monthly_rate_pct` (IPCA's `valor` is already a
-monthly % variation, stored directly; CDI's `valor` is an annualized rate,
-converted to a monthly-equivalent via `(1 + annualPct/100)^(1/12) - 1`),
-upserting one row per `(benchmark, reference_month)` into `benchmark_rates`.
-Each series is fetched and upserted independently inside its own
-try/catch — one series failing does not block the other (§1.5).
+a trailing-12-month window with margin for the weekly refresh lag). Points
+are first grouped by their `YYYY-MM` prefix, keeping only the **latest**
+point within each month (a no-op for IPCA, which already has one point per
+month; for CDI's daily points, this picks the most recent — i.e. most
+representative — rate observed in that month). Then, for each remaining
+month independently — no cross-month state — that month's raw BCB value
+becomes `monthly_rate_pct` (IPCA's `valor` is already a monthly %
+variation, stored directly; CDI's `valor` is an annualized rate, converted
+to a monthly-equivalent via `(1 + annualPct/100)^(1/12) - 1`), upserted as
+one row per `(benchmark, reference_month)` — `reference_month` always
+normalized to day 1 regardless of which day-of-month the source point
+carried — into `benchmark_rates`. Each series is fetched and upserted
+independently inside its own try/catch — one series failing does not block
+the other (§1.5).
 
 `getBenchmarkComparison`: reads the user's `investment_snapshots` for the
 requested window plus the matching `benchmark_rates` rows, indexes the
