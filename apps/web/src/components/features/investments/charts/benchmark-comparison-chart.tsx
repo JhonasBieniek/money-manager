@@ -19,7 +19,7 @@ const PERIOD_OPTIONS = [
 
 interface ChartPoint {
   referenceMonth: string;
-  patrimonyAccumulatedPct: number;
+  patrimonyAccumulatedPct: number | null;
   ipcaAccumulatedPct: number | null;
   cdiAccumulatedPct: number | null;
 }
@@ -54,7 +54,8 @@ export function BenchmarkComparisonChart() {
 
   const chartData: ChartPoint[] = (comparison?.series ?? []).map((point) => ({
     referenceMonth: point.referenceMonth,
-    patrimonyAccumulatedPct: point.patrimonyIndexed - 100,
+    patrimonyAccumulatedPct:
+      point.patrimonyIndexed === null ? null : point.patrimonyIndexed - 100,
     ipcaAccumulatedPct: point.ipcaAccumulatedPct,
     cdiAccumulatedPct: point.cdiAccumulatedPct,
   }));
@@ -121,6 +122,7 @@ export function BenchmarkComparisonChart() {
                 stroke="#10b981"
                 strokeWidth={2}
                 dot={false}
+                connectNulls
               />
               <Line
                 type="monotone"
