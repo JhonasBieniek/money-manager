@@ -170,7 +170,11 @@ describe("computePatrimonySummary", () => {
         "h-today",
       );
     } finally {
-      process.env.TZ = originalTz;
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
     }
   });
 

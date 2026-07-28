@@ -250,7 +250,11 @@ describeWithDb("patrimony summary integration", () => {
       );
     } finally {
       jest.useRealTimers();
-      process.env.TZ = originalTz;
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
     }
   });
 });
