@@ -26,7 +26,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const PIGGY_BANK_ICONS: { name: string; label: string; Icon: LucideIcon }[] = [
+export const PIGGY_BANK_ICONS: {
+  name: string;
+  label: string;
+  Icon: LucideIcon;
+}[] = [
   { name: "piggy-bank", label: "Cofrinho", Icon: PiggyBank },
   { name: "plane", label: "Viagem", Icon: Plane },
   { name: "home", label: "Casa", Icon: Home },

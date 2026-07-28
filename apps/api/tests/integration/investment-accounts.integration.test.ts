@@ -29,7 +29,11 @@ describeWithDb("investment accounts integration", () => {
     const res = await request(app)
       .post("/v1/investment-accounts")
       .set("Authorization", `Bearer ${accessToken}`)
-      .send({ name: "Conta sem instituição", type: "brokerage", institution: null });
+      .send({
+        name: "Conta sem instituição",
+        type: "brokerage",
+        institution: null,
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.institution).toBeNull();
