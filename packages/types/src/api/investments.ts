@@ -25,6 +25,37 @@ export const INVESTMENT_ACCOUNT_TYPE_LABELS: Record<
 
 export type IncomeType = "fixed_income" | "variable_income";
 
+export const ASSET_CLASSES = [
+  "stocks",
+  "fii",
+  "fixed_income",
+  "crypto",
+  "fund",
+  "real_estate",
+  "cash",
+  "other",
+] as const;
+
+export type AssetClass = (typeof ASSET_CLASSES)[number];
+
+export const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
+  stocks: "Ações",
+  fii: "FIIs",
+  fixed_income: "Renda fixa",
+  crypto: "Cripto",
+  fund: "Fundos",
+  real_estate: "Imóveis",
+  cash: "Caixa",
+  other: "Outro",
+};
+
+export type PricingSource =
+  | "manual"
+  | "brapi"
+  | "coingecko"
+  | "yahoo"
+  | "alpha_vantage";
+
 export interface InvestmentAccount {
   id: string;
   userId: string;
@@ -42,8 +73,14 @@ export interface InvestmentHolding {
   userId: string;
   symbol: string;
   incomeType: IncomeType;
+  assetClass: AssetClass | null;
+  quantity: string;
+  averageCostCents: number | null;
   currentUnitValueCents: number;
   maturityDate: string | null;
+  pricingSource: PricingSource;
+  manualOverride: boolean;
+  lastQuoteError: string | null;
   notes: string | null;
   lastValuationAt: string;
   createdAt: string;
@@ -66,8 +103,11 @@ export interface UpdateInvestmentAccountBody {
 export interface CreateInvestmentHoldingBody {
   accountId: string;
   symbol: string;
-  currentUnitValueCents: number;
   incomeType?: IncomeType;
+  currentUnitValueCents?: number;
+  assetClass?: AssetClass;
+  quantity?: number;
+  averageCostCents?: number | null;
   maturityDate?: string | null;
   notes?: string | null;
 }
@@ -82,8 +122,12 @@ export interface UpdateHoldingValuationBody {
   currentUnitValueCents: number;
 }
 
+export interface UpdateHoldingQuoteModeBody {
+  manualOverride: boolean;
+}
+
 export interface PatrimonyAssetClassBucket {
-  class: "fixed_income_group";
+  class: AssetClass | "fixed_income_group";
   label: string;
   totalCents: number;
   percentage: number;
@@ -109,6 +153,6 @@ export interface PatrimonySummary {
   byAssetClass: PatrimonyAssetClassBucket[];
   byAccount: PatrimonyAccountBucket[];
   lastUpdatedAt: string | null;
-  quotesStale: false;
+  quotesStale: boolean;
   upcomingMaturities: PatrimonyUpcomingMaturity[];
 }
