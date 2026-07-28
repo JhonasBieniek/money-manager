@@ -81,4 +81,15 @@ describe("createBcbProvider", () => {
       BcbProviderError,
     );
   });
+
+  it("lança BcbProviderError quando um ponto tem data em formato inválido", async () => {
+    const fetchFn = jest.fn(async () =>
+      fakeResponse([{ data: "invalid", valor: "1.0" }]),
+    );
+    const provider = createBcbProvider(fetchFn as unknown as typeof fetch);
+
+    await expect(provider.fetchSeries(433, 3)).rejects.toThrow(
+      BcbProviderError,
+    );
+  });
 });

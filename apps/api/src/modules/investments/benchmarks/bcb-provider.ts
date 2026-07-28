@@ -57,7 +57,12 @@ export function createBcbProvider(fetchFn: typeof fetch = fetch) {
 
       return (data as BcbRawPoint[]).map((point) => {
         const value = Number(point?.valor);
-        if (typeof point?.data !== "string" || !Number.isFinite(value)) {
+        const dateFormatRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+        if (
+          typeof point?.data !== "string" ||
+          !dateFormatRegex.test(point.data) ||
+          !Number.isFinite(value)
+        ) {
           throw new BcbProviderError(
             `BCB SGS retornou ponto inválido para série ${seriesCode}`,
           );
