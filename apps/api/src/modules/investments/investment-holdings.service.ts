@@ -10,6 +10,7 @@ import {
   BadRequestError,
   NotFoundError,
 } from "../../shared/errors/app-error.js";
+import { refreshHoldingQuote } from "./pricing/quote-refresh.service.js";
 import { pricingSourceForAssetClass } from "./pricing/types.js";
 import type {
   CreateInvestmentHoldingBody,
@@ -220,6 +221,15 @@ export async function updateHoldingQuoteMode(
     .where(eq(investmentHoldings.id, holdingId));
 
   return getInvestmentHolding(userId, holdingId);
+}
+
+export async function refreshHoldingQuoteById(
+  userId: string,
+  holdingId: string,
+): Promise<InvestmentHolding> {
+  const row = await getInvestmentHoldingRow(userId, holdingId);
+  const refreshed = await refreshHoldingQuote(row, "on-demand");
+  return toInvestmentHolding(refreshed);
 }
 
 export async function deleteInvestmentHolding(
