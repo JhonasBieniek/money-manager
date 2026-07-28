@@ -54,7 +54,7 @@ export interface InvestmentHolding {
 export interface CreateInvestmentAccountBody {
   name: string;
   type: InvestmentAccountType;
-  institution?: string;
+  institution?: string | null;
 }
 
 export interface UpdateInvestmentAccountBody {
@@ -68,8 +68,8 @@ export interface CreateInvestmentHoldingBody {
   symbol: string;
   currentUnitValueCents: number;
   incomeType?: IncomeType;
-  maturityDate?: string;
-  notes?: string;
+  maturityDate?: string | null;
+  notes?: string | null;
 }
 
 export interface UpdateInvestmentHoldingBody {

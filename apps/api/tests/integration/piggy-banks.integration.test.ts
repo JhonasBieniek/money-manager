@@ -45,6 +45,27 @@ describeWithDb("piggy banks integration", () => {
     expect(res.body.targetAmountCents).toBeNull();
   });
 
+  it("POST /v1/piggy-banks aceita null nos campos opcionais (payload do frontend)", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .post("/v1/piggy-banks")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        name: "Cofrinho sem meta",
+        icon: null,
+        goalDescription: null,
+        targetDate: null,
+        targetAmountCents: null,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.icon).toBeNull();
+    expect(res.body.goalDescription).toBeNull();
+    expect(res.body.targetDate).toBeNull();
+    expect(res.body.targetAmountCents).toBeNull();
+  });
+
   it("GET /v1/piggy-banks/:id retorna 404 para cofrinho de outro usuário", async () => {
     const { accessToken: tokenA } = await registerUser(app);
     const { accessToken: tokenB } = await registerUser(app);

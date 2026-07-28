@@ -8,8 +8,9 @@ export const createInvestmentHoldingBodySchema = z.object({
   maturityDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
     .optional(),
-  notes: z.string().trim().min(1).optional(),
+  notes: z.string().trim().min(1).nullable().optional(),
 });
 
 export type CreateInvestmentHoldingBody = z.infer<

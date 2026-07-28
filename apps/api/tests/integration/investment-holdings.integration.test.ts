@@ -36,6 +36,26 @@ describeWithDb("investment holdings integration", () => {
     expect(res.body.currentUnitValueCents).toBe(100000);
   });
 
+  it("POST /v1/investment-holdings aceita null nos campos opcionais (payload do frontend)", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+
+    const res = await request(app)
+      .post("/v1/investment-holdings")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        accountId,
+        symbol: "CDB sem detalhes",
+        currentUnitValueCents: 1000,
+        maturityDate: null,
+        notes: null,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.maturityDate).toBeNull();
+    expect(res.body.notes).toBeNull();
+  });
+
   it("POST /v1/investment-holdings rejeita accountId de outro usuário", async () => {
     const { accessToken: tokenA } = await registerUser(app);
     const { accessToken: tokenB } = await registerUser(app);
@@ -47,6 +67,7 @@ describeWithDb("investment holdings integration", () => {
       .send({ accountId, symbol: "CDB inválido", currentUnitValueCents: 1000 });
 
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Conta de investimento inválida");
   });
 
   it("POST /v1/investment-holdings rejeita incomeType variable_income", async () => {

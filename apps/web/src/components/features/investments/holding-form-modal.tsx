@@ -81,8 +81,8 @@ export function HoldingFormModal({
               accountId,
               symbol: symbol.trim(),
               currentUnitValueCents: Math.round(valueParsed * 100),
-              maturityDate: maturityDate || undefined,
-              notes: notes.trim() || undefined,
+              maturityDate: maturityDate || null,
+              notes: notes.trim() || null,
             }),
           });
       if (!res.ok) {

@@ -148,7 +148,7 @@ export function PiggyBankFormModal({
               Ícone
             </label>
             <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
-              {PIGGY_BANK_ICONS.map(({ name: iconName, Icon }) => (
+              {PIGGY_BANK_ICONS.map(({ name: iconName, label, Icon }) => (
                 <button
                   key={iconName}
                   type="button"
@@ -159,7 +159,7 @@ export function PiggyBankFormModal({
                       ? "border-emerald-500 bg-emerald-500 text-zinc-950"
                       : "border-white/5 bg-white/5 text-zinc-400 hover:bg-white/10",
                   )}
-                  aria-label={iconName}
+                  aria-label={label}
                 >
                   <Icon className="h-4 w-4" />
                 </button>

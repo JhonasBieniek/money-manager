@@ -14,7 +14,7 @@ const investmentAccountTypeSchema = z.enum(
 export const createInvestmentAccountBodySchema = z.object({
   name: z.string().trim().min(1, "Informe um nome para a conta"),
   type: investmentAccountTypeSchema,
-  institution: z.string().trim().min(1).optional(),
+  institution: z.string().trim().min(1).nullable().optional(),
 });
 
 export type CreateInvestmentAccountBody = z.infer<

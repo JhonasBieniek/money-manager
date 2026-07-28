@@ -23,6 +23,18 @@ describeWithDb("investment accounts integration", () => {
     expect(res.body.institution).toBe("XP");
   });
 
+  it("POST /v1/investment-accounts aceita null nos campos opcionais (payload do frontend)", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .post("/v1/investment-accounts")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ name: "Conta sem instituição", type: "brokerage", institution: null });
+
+    expect(res.status).toBe(201);
+    expect(res.body.institution).toBeNull();
+  });
+
   it("GET /v1/investment-accounts lista apenas contas do usuário", async () => {
     const { accessToken: tokenA } = await registerUser(app);
     const { accessToken: tokenB } = await registerUser(app);
@@ -59,6 +71,7 @@ describeWithDb("investment accounts integration", () => {
       .set("Authorization", `Bearer ${tokenB}`);
 
     expect(getRes.status).toBe(404);
+    expect(getRes.body.error).toBe("Conta não encontrada");
   });
 
   it("PATCH /v1/investment-accounts/:id atualiza campos parcialmente", async () => {

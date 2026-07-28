@@ -28,10 +28,10 @@ export interface PiggyBankTransaction {
 
 export interface CreatePiggyBankBody {
   name: string;
-  icon?: string;
-  targetAmountCents?: number;
-  goalDescription?: string;
-  targetDate?: string;
+  icon?: string | null;
+  targetAmountCents?: number | null;
+  goalDescription?: string | null;
+  targetDate?: string | null;
 }
 
 export interface UpdatePiggyBankBody {

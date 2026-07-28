@@ -53,26 +53,6 @@ function toPiggyBankTransaction(
   };
 }
 
-// NOTE: no longer called from applyTransaction below — the balance write
-// path now delegates the arithmetic (and the insufficient-balance check) to
-// the database itself via an atomic UPDATE, to avoid a lost-update race
-// under concurrent deposit/withdraw requests. Kept exported/unit-tested as a
-// documented reference for the same balance rules the DB now enforces.
-export function resolveBalanceAfterTransaction(
-  currentAmountCents: number,
-  type: PiggyBankTransactionType,
-  amountCents: number,
-): number {
-  if (type === "deposit") {
-    return currentAmountCents + amountCents;
-  }
-
-  if (amountCents > currentAmountCents) {
-    throw new BadRequestError("Saldo insuficiente no cofrinho");
-  }
-  return currentAmountCents - amountCents;
-}
-
 async function getPiggyBankRow(
   userId: string,
   piggyBankId: string,
@@ -204,7 +184,7 @@ async function applyTransaction(
 
   await getDb().transaction(async (tx) => {
     if (type === "deposit") {
-      await tx
+      const [updated] = await tx
         .update(piggyBanks)
         .set({
           currentAmountCents: sql`${piggyBanks.currentAmountCents} + ${input.amountCents}`,
@@ -216,7 +196,12 @@ async function applyTransaction(
             eq(piggyBanks.userId, userId),
             isNull(piggyBanks.deletedAt),
           ),
-        );
+        )
+        .returning({ id: piggyBanks.id });
+
+      if (!updated) {
+        throw new NotFoundError("Cofrinho não encontrado");
+      }
     } else {
       const [updated] = await tx
         .update(piggyBanks)
