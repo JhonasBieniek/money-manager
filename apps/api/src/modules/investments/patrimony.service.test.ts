@@ -4,6 +4,7 @@ import { computePatrimonySummary } from "./patrimony.service.js";
 type HoldingFixture = Parameters<typeof computePatrimonySummary>[0][number];
 type AccountFixture = Parameters<typeof computePatrimonySummary>[1][number];
 type PiggyBankFixture = Parameters<typeof computePatrimonySummary>[2][number];
+type QuoteCacheFixture = Parameters<typeof computePatrimonySummary>[3][number];
 
 function holding(overrides: Partial<HoldingFixture>): HoldingFixture {
   return {
@@ -61,12 +62,26 @@ function piggyBank(overrides: Partial<PiggyBankFixture>): PiggyBankFixture {
   } as PiggyBankFixture;
 }
 
+function quoteCache(overrides: Partial<QuoteCacheFixture>): QuoteCacheFixture {
+  return {
+    symbol: "PETR4",
+    assetClass: "stocks",
+    unitValueCents: 3800,
+    pricingSource: "brapi",
+    quotedAt: new Date("2026-01-15T00:00:00.000Z"),
+    expiresAt: new Date("2026-01-15T01:00:00.000Z"),
+    rawResponse: null,
+    ...overrides,
+  } as QuoteCacheFixture;
+}
+
 describe("computePatrimonySummary", () => {
   it("soma holdings e cofrinhos para o total de patrimônio", () => {
     const result = computePatrimonySummary(
       [holding({ currentUnitValueCents: 10000 })],
       [account({})],
       [piggyBank({ currentAmountCents: 5000 })],
+      [],
       new Date("2026-01-15T00:00:00.000Z"),
     );
 
@@ -88,6 +103,7 @@ describe("computePatrimonySummary", () => {
         account({ id: "acc-2", name: "Conta B" }),
       ],
       [],
+      [],
       new Date("2026-01-15T00:00:00.000Z"),
     );
 
@@ -101,6 +117,7 @@ describe("computePatrimonySummary", () => {
 
   it("retorna byAssetClass vazio quando não há holdings", () => {
     const result = computePatrimonySummary(
+      [],
       [],
       [],
       [],
@@ -135,6 +152,7 @@ describe("computePatrimonySummary", () => {
       ],
       [account({})],
       [],
+      [],
       now,
     );
 
@@ -162,6 +180,7 @@ describe("computePatrimonySummary", () => {
           }),
         ],
         [account({})],
+        [],
         [],
         now,
       );
@@ -192,6 +211,7 @@ describe("computePatrimonySummary", () => {
       ],
       [account({})],
       [],
+      [],
       new Date("2026-01-15T00:00:00.000Z"),
     );
 
@@ -203,8 +223,137 @@ describe("computePatrimonySummary", () => {
       [],
       [],
       [],
+      [],
       new Date("2026-01-15T00:00:00.000Z"),
     );
     expect(result.lastUpdatedAt).toBeNull();
+  });
+
+  it("multiplica quantity × currentUnitValueCents para holdings de renda variável", () => {
+    const result = computePatrimonySummary(
+      [
+        holding({
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: "100",
+          currentUnitValueCents: 3000,
+          pricingSource: "brapi",
+        }),
+      ],
+      [account({})],
+      [],
+      [],
+      new Date("2026-01-15T00:00:00.000Z"),
+    );
+
+    expect(result.investmentsCents).toBe(300000);
+  });
+
+  it("segmenta byAssetClass por classe real em holdings RV, mantendo RF agrupado", () => {
+    const result = computePatrimonySummary(
+      [
+        holding({
+          id: "h-rf",
+          incomeType: "fixed_income",
+          currentUnitValueCents: 5000,
+        }),
+        holding({
+          id: "h-rv",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: "10",
+          currentUnitValueCents: 500,
+          pricingSource: "brapi",
+        }),
+      ],
+      [account({})],
+      [],
+      [],
+      new Date("2026-01-15T00:00:00.000Z"),
+    );
+
+    expect(result.byAssetClass).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          class: "fixed_income_group",
+          totalCents: 5000,
+        }),
+        expect.objectContaining({
+          class: "stocks",
+          totalCents: 5000,
+          label: "Ações",
+        }),
+      ]),
+    );
+  });
+
+  it("quotesStale é true quando uma holding RV não tem cache ou o cache expirou", () => {
+    const result = computePatrimonySummary(
+      [
+        holding({
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          pricingSource: "brapi",
+        }),
+      ],
+      [account({})],
+      [],
+      [],
+      new Date("2026-01-15T00:00:00.000Z"),
+    );
+
+    expect(result.quotesStale).toBe(true);
+  });
+
+  it("quotesStale é false quando o cache da holding RV ainda está válido", () => {
+    const now = new Date("2026-01-15T00:00:00.000Z");
+    const result = computePatrimonySummary(
+      [
+        holding({
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          pricingSource: "brapi",
+        }),
+      ],
+      [account({})],
+      [],
+      [
+        quoteCache({
+          symbol: "PETR4",
+          assetClass: "stocks",
+          expiresAt: new Date("2026-01-15T01:00:00.000Z"),
+        }),
+      ],
+      now,
+    );
+
+    expect(result.quotesStale).toBe(false);
+  });
+
+  it("quotesStale ignora holdings RV com manualOverride ou pricingSource manual", () => {
+    const result = computePatrimonySummary(
+      [
+        holding({
+          id: "h-override",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          pricingSource: "brapi",
+          manualOverride: true,
+        }),
+        holding({
+          id: "h-manual-class",
+          incomeType: "variable_income",
+          assetClass: "real_estate",
+          pricingSource: "manual",
+        }),
+      ],
+      [account({})],
+      [],
+      [],
+      new Date("2026-01-15T00:00:00.000Z"),
+    );
+
+    expect(result.quotesStale).toBe(false);
   });
 });
