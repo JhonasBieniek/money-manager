@@ -112,6 +112,26 @@ describeWithDb("investment holdings integration", () => {
     expect(res.body.lastQuoteError).toBe("Cotação pendente");
   });
 
+  it("POST /v1/investment-holdings não grava 'Cotação pendente' para classe de ativo não roteável (pricingSource manual)", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+
+    const res = await request(app)
+      .post("/v1/investment-holdings")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        accountId,
+        symbol: "Apê alugado",
+        incomeType: "variable_income",
+        assetClass: "real_estate",
+        quantity: 1,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.pricingSource).toBe("manual");
+    expect(res.body.lastQuoteError).toBeNull();
+  });
+
   it("PATCH /v1/investment-holdings/:id/quote-mode alterna manualOverride e rejeita em holdings RF", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);

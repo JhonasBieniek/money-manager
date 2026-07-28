@@ -154,7 +154,9 @@ export async function createInvestmentHolding(
       maturityDate: input.maturityDate ?? null,
       pricingSource,
       lastQuoteError:
-        isVariableIncome && input.currentUnitValueCents === undefined
+        isVariableIncome &&
+        pricingSource !== "manual" &&
+        input.currentUnitValueCents === undefined
           ? "Cotação pendente"
           : null,
       notes: input.notes ?? null,
