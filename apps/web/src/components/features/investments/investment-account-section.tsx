@@ -10,6 +10,10 @@ function formatCurrency(cents: number) {
   }).format(cents / 100);
 }
 
+function positionValueCents(holding: InvestmentHolding): number {
+  return Math.round(Number(holding.quantity) * holding.currentUnitValueCents);
+}
+
 interface InvestmentAccountSectionProps {
   account: InvestmentAccount;
   holdings: InvestmentHolding[];
@@ -19,6 +23,8 @@ interface InvestmentAccountSectionProps {
   onEditHolding: (holding: InvestmentHolding) => void;
   onValuationHolding: (holding: InvestmentHolding) => void;
   onDeleteHolding: (id: string) => void;
+  onRefreshHoldingQuote: (id: string) => void;
+  onToggleHoldingOverride: (id: string, manualOverride: boolean) => void;
 }
 
 export function InvestmentAccountSection({
@@ -30,8 +36,10 @@ export function InvestmentAccountSection({
   onEditHolding,
   onValuationHolding,
   onDeleteHolding,
+  onRefreshHoldingQuote,
+  onToggleHoldingOverride,
 }: InvestmentAccountSectionProps) {
-  const total = holdings.reduce((acc, h) => acc + h.currentUnitValueCents, 0);
+  const total = holdings.reduce((acc, h) => acc + positionValueCents(h), 0);
 
   return (
     <div className="glass rounded-2xl p-5 sm:rounded-3xl sm:p-6">
@@ -75,6 +83,8 @@ export function InvestmentAccountSection({
             onEdit={onEditHolding}
             onValuation={onValuationHolding}
             onDelete={onDeleteHolding}
+            onRefreshQuote={onRefreshHoldingQuote}
+            onToggleOverride={onToggleHoldingOverride}
           />
         ))}
       </div>

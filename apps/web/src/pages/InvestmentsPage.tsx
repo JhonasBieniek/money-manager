@@ -145,6 +145,33 @@ export function InvestmentsPage() {
     }
   }
 
+  async function handleRefreshHoldingQuote(id: string) {
+    try {
+      const res = await apiFetch(`/v1/investment-holdings/${id}/refresh-quote`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Erro ao atualizar cotação");
+      void loadAll();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Erro ao atualizar cotação");
+    }
+  }
+
+  async function handleToggleHoldingOverride(id: string, manualOverride: boolean) {
+    try {
+      const res = await apiFetch(`/v1/investment-holdings/${id}/quote-mode`, {
+        method: "PATCH",
+        body: JSON.stringify({ manualOverride }),
+      });
+      if (!res.ok) throw new Error("Erro ao alternar modo de cotação");
+      void loadAll();
+    } catch (err: unknown) {
+      alert(
+        err instanceof Error ? err.message : "Erro ao alternar modo de cotação",
+      );
+    }
+  }
+
   function openCreatePiggyBank() {
     setEditingPiggyBank(null);
     setPiggyBankFormOpen(true);
@@ -257,6 +284,10 @@ export function InvestmentsPage() {
                   onEditHolding={openEditHolding}
                   onValuationHolding={setValuationHolding}
                   onDeleteHolding={(id) => void handleDeleteHolding(id)}
+                  onRefreshHoldingQuote={(id) => void handleRefreshHoldingQuote(id)}
+                  onToggleHoldingOverride={(id, v) =>
+                    void handleToggleHoldingOverride(id, v)
+                  }
                 />
               ))}
             </div>

@@ -57,9 +57,31 @@ export function PatrimonySummaryCards({ summary }: PatrimonySummaryCardsProps) {
         </div>
       </div>
 
+      {summary.byAssetClass.length > 0 ? (
+        <div className="glass rounded-2xl p-5 sm:rounded-3xl sm:p-6">
+          <p className="mb-3 text-sm font-bold text-white">Alocação por classe</p>
+          <div className="space-y-2">
+            {summary.byAssetClass.map((bucket) => (
+              <div
+                key={bucket.class}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="text-zinc-300">{bucket.label}</span>
+                <span className="text-zinc-500">
+                  {formatCurrency(bucket.totalCents)} · {bucket.percentage}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {summary.lastUpdatedAt ? (
         <p className="text-xs text-zinc-500">
           Última atualização: {formatDateTime(summary.lastUpdatedAt)}
+          {summary.quotesStale ? (
+            <span className="ml-2 text-amber-400">· cotações desatualizadas</span>
+          ) : null}
         </p>
       ) : null}
 
