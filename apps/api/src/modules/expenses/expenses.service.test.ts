@@ -51,6 +51,7 @@ jest.unstable_mockModule("../debts/debts.service.js", () => ({
 }));
 
 const expensesService = await import("./expenses.service.js");
+const { resolveSyncMonthYear } = expensesService;
 
 function chainLimit<T>(value: T) {
   return {
@@ -153,6 +154,41 @@ describe("createExpense", () => {
 
     expect(result.id).toBe("existing-id");
     expect(dbMock.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveSyncMonthYear", () => {
+  it("usa year/month da query quando ambos informados", () => {
+    const now = new Date("2026-06-15T15:00:00.000Z");
+    const result = resolveSyncMonthYear(now, { year: 2020, month: 3 });
+    expect(result).toEqual({ year: 2020, month: 3 });
+  });
+
+  it("usa o mês/ano BRT corrente quando query não informa, sem ambiguidade de fuso", () => {
+    const now = new Date("2026-06-15T15:00:00.000Z"); // 12:00 BRT
+    const result = resolveSyncMonthYear(now, {});
+    expect(result).toEqual({ year: 2026, month: 6 });
+  });
+
+  it("usa o mês/ano BRT corrente mesmo quando UTC já virou o mês (fuso não-BRT)", () => {
+    // 2026-02-01T01:00:00Z corresponde a 2026-01-31T22:00:00-03:00: já é
+    // fevereiro em UTC, mas ainda é janeiro no horário de Brasília. Uma
+    // implementação baseada em now.getFullYear()/getMonth() sem conversão
+    // para BRT sincronizaria dívidas do mês errado (fevereiro) num host
+    // não-BRT, deixando de sincronizar as despesas de janeiro.
+    const originalTz = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const now = new Date("2026-02-01T01:00:00.000Z");
+      const result = resolveSyncMonthYear(now, {});
+      expect(result).toEqual({ year: 2026, month: 1 });
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
   });
 });
 
