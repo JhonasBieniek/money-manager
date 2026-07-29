@@ -171,8 +171,6 @@ describeWithDb("investment holdings integration", () => {
   it("POST /v1/investment-holdings/:id/refresh-quote busca cotação e respeita throttle de 1 min", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
-    const originalToken = process.env.BRAPI_TOKEN;
-    process.env.BRAPI_TOKEN = "test-token";
 
     const fetchSpy = jest
       .spyOn(globalThis, "fetch")
@@ -184,6 +182,11 @@ describeWithDb("investment holdings integration", () => {
       } as Response);
 
     try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
       const rvRes = await request(app)
         .post("/v1/investment-holdings")
         .set("Authorization", `Bearer ${accessToken}`)
@@ -201,62 +204,45 @@ describeWithDb("investment holdings integration", () => {
         .set("Authorization", `Bearer ${accessToken}`);
       expect(firstRefresh.status).toBe(200);
       expect(firstRefresh.body.currentUnitValueCents).toBe(4000);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // 1 validação (PUT) + 1 cotação
 
       const secondRefresh = await request(app)
         .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
         .set("Authorization", `Bearer ${accessToken}`);
       expect(secondRefresh.status).toBe(200);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // throttled, sem chamada nova
     } finally {
       fetchSpy.mockRestore();
-      if (originalToken === undefined) {
-        delete process.env.BRAPI_TOKEN;
-      } else {
-        process.env.BRAPI_TOKEN = originalToken;
-      }
     }
   });
 
   it("POST /v1/investment-holdings/:id/refresh-quote nunca retorna erro HTTP quando o provider falha", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
-    const originalToken = process.env.BRAPI_TOKEN;
-    delete process.env.BRAPI_TOKEN;
 
-    try {
-      const rvRes = await request(app)
-        .post("/v1/investment-holdings")
-        .set("Authorization", `Bearer ${accessToken}`)
-        .send({
-          accountId,
-          symbol: "PETR4",
-          incomeType: "variable_income",
-          assetClass: "stocks",
-          quantity: 10,
-        });
-      const rvId = rvRes.body.id as string;
+    const rvRes = await request(app)
+      .post("/v1/investment-holdings")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        accountId,
+        symbol: "PETR4",
+        incomeType: "variable_income",
+        assetClass: "stocks",
+        quantity: 10,
+      });
+    const rvId = rvRes.body.id as string;
 
-      const res = await request(app)
-        .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
-        .set("Authorization", `Bearer ${accessToken}`);
+    const res = await request(app)
+      .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
+      .set("Authorization", `Bearer ${accessToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.lastQuoteError).toContain("BRAPI_TOKEN");
-    } finally {
-      if (originalToken === undefined) {
-        delete process.env.BRAPI_TOKEN;
-      } else {
-        process.env.BRAPI_TOKEN = originalToken;
-      }
-    }
+    expect(res.status).toBe(200);
+    expect(res.body.lastQuoteError).toContain("Configure sua chave da Brapi");
   });
 
   it("GET /v1/patrimony/summary reflete quantity × cotação e byAssetClass real para holdings RV", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
-    const originalToken = process.env.BRAPI_TOKEN;
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -265,6 +251,11 @@ describeWithDb("investment holdings integration", () => {
     } as Response);
 
     try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
       const rvRes = await request(app)
         .post("/v1/investment-holdings")
         .set("Authorization", `Bearer ${accessToken}`)
@@ -294,19 +285,12 @@ describeWithDb("investment holdings integration", () => {
       expect(summaryRes.body.quotesStale).toBe(false);
     } finally {
       fetchSpy.mockRestore();
-      if (originalToken === undefined) {
-        delete process.env.BRAPI_TOKEN;
-      } else {
-        process.env.BRAPI_TOKEN = originalToken;
-      }
     }
   });
 
   it("POST /v1/investments/refresh-quotes atualiza todas as posições RV do usuário em lote", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
-    const originalToken = process.env.BRAPI_TOKEN;
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -315,6 +299,11 @@ describeWithDb("investment holdings integration", () => {
     } as Response);
 
     try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
       await request(app)
         .post("/v1/investment-holdings")
         .set("Authorization", `Bearer ${accessToken}`)
@@ -347,22 +336,15 @@ describeWithDb("investment holdings integration", () => {
       const values = (listRes.body.items as { currentUnitValueCents: number }[])
         .map((h) => h.currentUnitValueCents);
       expect(values).toEqual([4000, 4000]);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 validação (PUT) + 2 cotações (PETR4, VALE3)
     } finally {
       fetchSpy.mockRestore();
-      if (originalToken === undefined) {
-        delete process.env.BRAPI_TOKEN;
-      } else {
-        process.env.BRAPI_TOKEN = originalToken;
-      }
     }
   });
 
   it("compartilha uma única chamada externa entre duas posições com o mesmo símbolo", async () => {
     const { accessToken } = await registerUser(app);
     const accountId = await createAccount(app, accessToken);
-    const originalToken = process.env.BRAPI_TOKEN;
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -371,6 +353,11 @@ describeWithDb("investment holdings integration", () => {
     } as Response);
 
     try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
       await request(app)
         .post("/v1/investment-holdings")
         .set("Authorization", `Bearer ${accessToken}`)
@@ -397,17 +384,11 @@ describeWithDb("investment holdings integration", () => {
         .set("Authorization", `Bearer ${accessToken}`);
       expect(res.status).toBe(204);
 
-      // Duas posições no mesmo símbolo (PETR4): a primeira busca a cotação e
-      // grava o cache; a segunda reaproveita o cache recém-gravado em vez de
-      // chamar o provider de novo — daí exatamente 1 chamada, não 2.
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // 1 validação (PUT) + 1 cotação: as duas posições PETR4 compartilham o
+      // cache, então a segunda não gera uma nova chamada ao provider.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
     } finally {
       fetchSpy.mockRestore();
-      if (originalToken === undefined) {
-        delete process.env.BRAPI_TOKEN;
-      } else {
-        process.env.BRAPI_TOKEN = originalToken;
-      }
     }
   });
 
