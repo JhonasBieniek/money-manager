@@ -23,6 +23,7 @@ export function PatrimonyPeriodSelector({
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
+          aria-pressed={value === option.value}
           className={cn(
             "rounded-xl px-4 py-2 text-sm font-bold transition-all",
             value === option.value
