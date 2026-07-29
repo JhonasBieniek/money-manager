@@ -121,8 +121,8 @@ export function computePatrimonySummary(
   maturityCutoff.setDate(
     maturityCutoff.getDate() + UPCOMING_MATURITY_WINDOW_DAYS,
   );
-  const todayStr = toDateString(now);
-  const cutoffStr = toDateString(maturityCutoff);
+  const todayStr = todayBrtString(now);
+  const cutoffStr = todayBrtString(maturityCutoff);
 
   const upcomingMaturities: PatrimonyUpcomingMaturity[] = holdings
     .filter(
