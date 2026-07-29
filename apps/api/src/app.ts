@@ -17,6 +17,7 @@ import { investmentHoldingsRoutes } from "./modules/investments/investment-holdi
 import { investmentsRoutes } from "./modules/investments/investments.routes.js";
 import { patrimonyRoutes } from "./modules/investments/patrimony.routes.js";
 import { piggyBanksRoutes } from "./modules/piggy-banks/piggy-banks.routes.js";
+import { providerCredentialsRoutes } from "./modules/provider-credentials/provider-credentials.routes.js";
 import { tagsRoutes } from "./modules/tags/tags.routes.js";
 import { telegramInternalRoutes } from "./modules/telegram/telegram-internal.routes.js";
 import { telegramRoutes } from "./modules/telegram/telegram.routes.js";
@@ -70,6 +71,7 @@ export function createApp() {
 
   app.use("/v1/auth", authRoutes);
   app.use("/v1/me", userRoutes);
+  app.use("/v1/me/provider-credentials", providerCredentialsRoutes);
   app.use("/v1/tags", tagsRoutes);
   app.use("/v1/goals", goalsRoutes);
   app.use("/v1/credit-cards", creditCardsRoutes);
