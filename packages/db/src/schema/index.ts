@@ -15,4 +15,5 @@ export * from "./credit-cards.js";
 export * from "./credit-card-statements.js";
 export * from "./debts.js";
 export * from "./investments.js";
+export * from "./provider-credentials.js";
 export * from "./piggy-banks.js";

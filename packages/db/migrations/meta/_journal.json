@@ -127,6 +127,13 @@
       "when": 1785269048078,
       "tag": "0017_cool_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785333338464,
+      "tag": "0018_fast_blizzard",
+      "breakpoints": true
     }
   ]
 }
