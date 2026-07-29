@@ -1,4 +1,5 @@
 const BCB_SGS_BASE_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs";
+const DATE_FORMAT_REGEX = /^\d{2}\/\d{2}\/\d{4}$/;
 
 export interface BcbSeriesPoint {
   date: string; // "YYYY-MM-DD", exactly as returned by BCB — not forced to day 1
@@ -56,11 +57,10 @@ export function createBcbProvider(fetchFn: typeof fetch = fetch) {
       }
 
       return (data as BcbRawPoint[]).map((point) => {
-        const dateFormatRegex = /^\d{2}\/\d{2}\/\d{4}$/;
         const value = Number(point?.valor);
         if (
           typeof point?.data !== "string" ||
-          !dateFormatRegex.test(point.data) ||
+          !DATE_FORMAT_REGEX.test(point.data) ||
           typeof point?.valor !== "string" ||
           point.valor.trim() === "" ||
           !Number.isFinite(value)
