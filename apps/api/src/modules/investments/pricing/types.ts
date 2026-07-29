@@ -13,7 +13,7 @@ export class QuoteProviderError extends Error {
 }
 
 export interface QuoteProvider {
-  fetchQuote(symbol: string): Promise<QuoteResult>;
+  fetchQuote(symbol: string, apiKey?: string): Promise<QuoteResult>;
 }
 
 const ROUTABLE_ASSET_CLASSES: Partial<Record<AssetClass, PricingSource>> = {

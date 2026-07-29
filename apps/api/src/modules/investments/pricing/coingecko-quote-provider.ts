@@ -28,12 +28,11 @@ export function createCoinGeckoQuoteProvider(
   fetchFn: typeof fetch = fetch,
 ): QuoteProvider {
   return {
-    async fetchQuote(symbol: string): Promise<QuoteResult> {
+    async fetchQuote(symbol: string, apiKey?: string): Promise<QuoteResult> {
       const id = normalizeCryptoSymbol(symbol);
       const url = new URL(COINGECKO_BASE_URL);
       url.searchParams.set("ids", id);
       url.searchParams.set("vs_currencies", "brl");
-      const apiKey = process.env.COINGECKO_API_KEY;
       if (apiKey) {
         url.searchParams.set("x_cg_demo_api_key", apiKey);
       }

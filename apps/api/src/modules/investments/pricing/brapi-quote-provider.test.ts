@@ -1,4 +1,4 @@
-import { describe, expect, it, jest, afterEach } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import {
   createBrapiQuoteProvider,
   normalizeB3Symbol,
@@ -13,18 +13,7 @@ describe("normalizeB3Symbol", () => {
 });
 
 describe("createBrapiQuoteProvider", () => {
-  const originalToken = process.env.BRAPI_TOKEN;
-
-  afterEach(() => {
-    if (originalToken === undefined) {
-      delete process.env.BRAPI_TOKEN;
-    } else {
-      process.env.BRAPI_TOKEN = originalToken;
-    }
-  });
-
-  it("lança QuoteProviderError quando BRAPI_TOKEN não está configurado", async () => {
-    delete process.env.BRAPI_TOKEN;
+  it("lança QuoteProviderError quando nenhuma apiKey é passada", async () => {
     const fetchFn = jest.fn();
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
@@ -35,7 +24,6 @@ describe("createBrapiQuoteProvider", () => {
   });
 
   it("retorna a cotação em centavos a partir de regularMarketPrice", async () => {
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchFn = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -44,7 +32,7 @@ describe("createBrapiQuoteProvider", () => {
     });
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
-    const result = await provider.fetchQuote("petr4.sa");
+    const result = await provider.fetchQuote("petr4.sa", "test-token");
 
     expect(result.unitValueCents).toBe(3842);
     expect(fetchFn).toHaveBeenCalledWith(
@@ -54,42 +42,38 @@ describe("createBrapiQuoteProvider", () => {
   });
 
   it("lança QuoteProviderError quando a API retorna status de erro", async () => {
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchFn = jest
       .fn()
       .mockResolvedValue({ ok: false, status: 404 });
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
-    await expect(provider.fetchQuote("INVALIDO")).rejects.toThrow(
-      QuoteProviderError,
-    );
+    await expect(
+      provider.fetchQuote("INVALIDO", "test-token"),
+    ).rejects.toThrow(QuoteProviderError);
   });
 
   it("lança QuoteProviderError quando a resposta não tem preço válido", async () => {
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchFn = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ results: [] }),
     });
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
-    await expect(provider.fetchQuote("PETR4")).rejects.toThrow(
-      QuoteProviderError,
-    );
+    await expect(
+      provider.fetchQuote("PETR4", "test-token"),
+    ).rejects.toThrow(QuoteProviderError);
   });
 
   it("lança QuoteProviderError quando fetchFn rejeita (erro de rede)", async () => {
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchFn = jest.fn().mockRejectedValue(new Error("network down"));
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
-    await expect(provider.fetchQuote("PETR4")).rejects.toThrow(
-      QuoteProviderError,
-    );
+    await expect(
+      provider.fetchQuote("PETR4", "test-token"),
+    ).rejects.toThrow(QuoteProviderError);
   });
 
   it("lança QuoteProviderError quando a resposta não é JSON válido", async () => {
-    process.env.BRAPI_TOKEN = "test-token";
     const fetchFn = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => {
@@ -98,8 +82,8 @@ describe("createBrapiQuoteProvider", () => {
     });
     const provider = createBrapiQuoteProvider(fetchFn as unknown as typeof fetch);
 
-    await expect(provider.fetchQuote("PETR4")).rejects.toThrow(
-      QuoteProviderError,
-    );
+    await expect(
+      provider.fetchQuote("PETR4", "test-token"),
+    ).rejects.toThrow(QuoteProviderError);
   });
 });

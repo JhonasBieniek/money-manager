@@ -1,4 +1,4 @@
-import { describe, expect, it, jest, afterEach } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import {
   createCoinGeckoQuoteProvider,
   normalizeCryptoSymbol,
@@ -17,18 +17,7 @@ describe("normalizeCryptoSymbol", () => {
 });
 
 describe("createCoinGeckoQuoteProvider", () => {
-  const originalKey = process.env.COINGECKO_API_KEY;
-
-  afterEach(() => {
-    if (originalKey === undefined) {
-      delete process.env.COINGECKO_API_KEY;
-    } else {
-      process.env.COINGECKO_API_KEY = originalKey;
-    }
-  });
-
-  it("funciona sem COINGECKO_API_KEY configurada (tier público)", async () => {
-    delete process.env.COINGECKO_API_KEY;
+  it("funciona sem apiKey (tier público)", async () => {
     const fetchFn = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ bitcoin: { brl: 350000.5 } }),
@@ -44,8 +33,7 @@ describe("createCoinGeckoQuoteProvider", () => {
     expect(calledUrl).not.toContain("x_cg_demo_api_key");
   });
 
-  it("inclui x_cg_demo_api_key quando COINGECKO_API_KEY está configurada", async () => {
-    process.env.COINGECKO_API_KEY = "demo-key";
+  it("inclui x_cg_demo_api_key quando apiKey é passada", async () => {
     const fetchFn = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ethereum: { brl: 12000 } }),
@@ -54,7 +42,7 @@ describe("createCoinGeckoQuoteProvider", () => {
       fetchFn as unknown as typeof fetch,
     );
 
-    await provider.fetchQuote("ETH");
+    await provider.fetchQuote("ETH", "demo-key");
 
     const calledUrl = (fetchFn.mock.calls[0]?.[0] as string) ?? "";
     expect(calledUrl).toContain("x_cg_demo_api_key=demo-key");

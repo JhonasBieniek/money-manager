@@ -15,16 +15,18 @@ export function createBrapiQuoteProvider(
   fetchFn: typeof fetch = fetch,
 ): QuoteProvider {
   return {
-    async fetchQuote(symbol: string): Promise<QuoteResult> {
-      const token = process.env.BRAPI_TOKEN;
-      if (!token) {
+    async fetchQuote(
+      symbol: string,
+      apiKey?: string,
+    ): Promise<QuoteResult> {
+      if (!apiKey) {
         throw new QuoteProviderError(
-          "Brapi não configurado (BRAPI_TOKEN ausente)",
+          "Configure sua chave da Brapi em Configurações para ativar a cotação automática.",
         );
       }
 
       const normalized = normalizeB3Symbol(symbol);
-      const url = `${BRAPI_BASE_URL}/${encodeURIComponent(normalized)}?token=${encodeURIComponent(token)}`;
+      const url = `${BRAPI_BASE_URL}/${encodeURIComponent(normalized)}?token=${encodeURIComponent(apiKey)}`;
 
       let response: Response;
       try {
