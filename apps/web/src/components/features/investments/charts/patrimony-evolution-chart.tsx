@@ -43,8 +43,10 @@ function formatCurrency(cents: number) {
 }
 
 function formatDateLabel(dateStr: string) {
-  const month = Number(dateStr.slice(5, 7));
-  return MONTH_LABELS[month - 1] ?? dateStr;
+  const [year, month, day] = dateStr.split("-");
+  const monthLabel = MONTH_LABELS[Number(month) - 1];
+  if (!year || !monthLabel || !day) return dateStr;
+  return `${day}/${monthLabel}/${year.slice(2)}`;
 }
 
 interface PatrimonyEvolutionChartProps {

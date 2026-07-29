@@ -17,6 +17,21 @@ const PERIOD_OPTIONS = [
   { value: "12m", label: "12M" },
 ];
 
+const MONTH_LABELS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
+
 interface ChartPoint {
   referenceMonth: string;
   patrimonyAccumulatedPct: number | null;
@@ -26,6 +41,13 @@ interface ChartPoint {
 
 function formatPct(value: number | null) {
   return value === null ? "—" : `${value.toFixed(2)}%`;
+}
+
+function formatMonthLabel(monthStr: string) {
+  const [year, month] = monthStr.split("-");
+  const monthLabel = MONTH_LABELS[Number(month) - 1];
+  if (!year || !monthLabel) return monthStr;
+  return `${monthLabel}/${year.slice(2)}`;
 }
 
 export function BenchmarkComparisonChart() {
@@ -89,7 +111,12 @@ export function BenchmarkComparisonChart() {
           <ResponsiveContainer width="100%" height={224}>
             <LineChart data={chartData}>
               <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
-              <XAxis dataKey="referenceMonth" stroke="#71717a" fontSize={12} />
+              <XAxis
+                dataKey="referenceMonth"
+                tickFormatter={formatMonthLabel}
+                stroke="#71717a"
+                fontSize={12}
+              />
               <YAxis
                 stroke="#71717a"
                 fontSize={12}
@@ -102,7 +129,9 @@ export function BenchmarkComparisonChart() {
                   const point = payload[0].payload as ChartPoint;
                   return (
                     <div className="glass rounded-xl px-3 py-2 text-xs text-white">
-                      <p className="font-bold">{point.referenceMonth}</p>
+                      <p className="font-bold">
+                        {formatMonthLabel(point.referenceMonth)}
+                      </p>
                       <p className="text-emerald-400">
                         Patrimônio: {formatPct(point.patrimonyAccumulatedPct)}
                       </p>
