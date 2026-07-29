@@ -130,6 +130,13 @@ export const investmentQuoteCache = pgTable(
 
 export const benchmarkTypeEnum = pgEnum("benchmark_type", ["ipca", "cdi"]);
 
+export interface InvestmentSnapshotAssetClassBucket {
+  class: string;
+  label: string;
+  totalCents: number;
+  percentage: number;
+}
+
 export const investmentSnapshots = pgTable(
   "investment_snapshots",
   {
@@ -139,7 +146,9 @@ export const investmentSnapshots = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     snapshotDate: date("snapshot_date").notNull(),
     totalAssetsCents: bigint("total_assets_cents", { mode: "number" }).notNull(),
-    byAssetClass: jsonb("by_asset_class").notNull(),
+    byAssetClass: jsonb("by_asset_class")
+      .$type<InvestmentSnapshotAssetClassBucket[]>()
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
