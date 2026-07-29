@@ -293,28 +293,32 @@ export function InvestmentsPage() {
         </p>
       ) : (
         <>
-          {summary ? (
-            <div className="space-y-4 sm:space-y-6">
-              <PatrimonySummaryCards summary={summary} />
-              <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+          <div className="space-y-4 sm:space-y-6">
+            {summary ? <PatrimonySummaryCards summary={summary} /> : null}
+            <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+              {summary ? (
                 <AllocationDonutChart buckets={summary.byAssetClass} />
-                <PatrimonyEvolutionChart refreshKey={snapshotRefreshKey} />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => void handleRegisterSnapshot()}
-                  disabled={registeringSnapshot}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-white/10 disabled:opacity-50"
-                >
-                  {registeringSnapshot
-                    ? "Registrando…"
-                    : "Registrar patrimônio hoje"}
-                </button>
-              </div>
-              <BenchmarkComparisonChart />
+              ) : (
+                <div className="glass flex h-64 items-center justify-center rounded-3xl p-4 text-center text-sm text-zinc-500 sm:rounded-[2.5rem] sm:p-6">
+                  Não foi possível carregar a alocação.
+                </div>
+              )}
+              <PatrimonyEvolutionChart refreshKey={snapshotRefreshKey} />
             </div>
-          ) : null}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handleRegisterSnapshot()}
+                disabled={registeringSnapshot}
+                className="rounded-xl bg-white/5 px-4 py-2 text-sm font-bold text-zinc-300 transition-all hover:bg-white/10 disabled:opacity-50"
+              >
+                {registeringSnapshot
+                  ? "Registrando…"
+                  : "Registrar patrimônio hoje"}
+              </button>
+            </div>
+            <BenchmarkComparisonChart />
+          </div>
 
           {accounts.length === 0 ? (
             <div className="glass rounded-2xl p-8 text-center sm:rounded-3xl">
