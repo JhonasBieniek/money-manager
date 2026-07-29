@@ -143,11 +143,15 @@ git commit -m "feat(db): add user_provider_credentials table"
 **Files:**
 - Create: `apps/api/src/shared/crypto/secret-encryption.ts`
 - Test: `apps/api/src/shared/crypto/secret-encryption.test.ts`
+- Modify: `apps/api/jest.setup.cjs`
 
 **Interfaces:**
 - Produces: `encryptSecret(plaintext: string): { encryptedValue: string; iv: string; authTag: string }`
   and `decryptSecret(input: { encryptedValue: string; iv: string; authTag: string }): string`,
-  consumed by Task 4's service layer.
+  consumed by Task 4's service layer. `jest.setup.cjs`'s new default value is
+  consumed transitively by Task 10's integration tests (the only place
+  besides this task's own test that exercises `encryptSecret`/`decryptSecret`
+  without setting `SETTINGS_ENCRYPTION_KEY` itself).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -278,12 +282,35 @@ export function decryptSecret(input: EncryptedSecret): string {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit -t "encryptSecret"`
-Expected: PASS, all 5 tests.
+Expected: PASS, all 4 tests.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Add a default test key to `jest.setup.cjs`**
+
+`jest.setup.cjs` sets `??=` defaults for secrets every test run needs
+(`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_KEY`) so that
+test files never have to set them individually. Task 10's integration
+tests will exercise `setCredential`/`getDecryptedCredential` through the
+real HTTP layer without setting `SETTINGS_ENCRYPTION_KEY` themselves (this
+task's own unit test above manages the var itself via `beforeEach`, so it
+doesn't depend on this default — but nothing else does either yet, which
+is why Task 10 needs it). In `apps/api/jest.setup.cjs`, add one line after
+the existing `INTERNAL_API_KEY` default:
+
+```js
+process.env.INTERNAL_API_KEY ??= "dev-internal-key-change-me";
+process.env.SETTINGS_ENCRYPTION_KEY ??=
+  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+process.env.NODE_ENV = "test";
+```
+
+(that base64 string decodes to exactly 32 zero bytes — a valid, fixed
+`SETTINGS_ENCRYPTION_KEY` for tests only; it must never be reused outside
+a test environment)
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add apps/api/src/shared/crypto/secret-encryption.ts apps/api/src/shared/crypto/secret-encryption.test.ts
+git add apps/api/src/shared/crypto/secret-encryption.ts apps/api/src/shared/crypto/secret-encryption.test.ts apps/api/jest.setup.cjs
 git commit -m "feat(api): add AES-256-GCM secret encryption helper"
 ```
 
@@ -363,8 +390,28 @@ git commit -m "feat(types): add provider credential types"
 Create `apps/api/src/modules/provider-credentials/provider-credentials.service.test.ts`:
 
 ```ts
-import { describe, expect, it, jest } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { QuoteProviderError } from "../investments/pricing/types.js";
+
+const dbMock = {
+  select: jest.fn(),
+  insert: jest.fn(),
+  delete: jest.fn(),
+  update: jest.fn(),
+  transaction: jest.fn(),
+};
+
+jest.unstable_mockModule("@money-manager/db", () => ({
+  getDb: () => dbMock,
+  userProviderCredentials: {
+    userId: "user_id",
+    provider: "provider",
+    encryptedValue: "encrypted_value",
+    iv: "iv",
+    authTag: "auth_tag",
+    updatedAt: "updated_at",
+  },
+}));
 
 const mockFetchQuote = jest.fn();
 jest.unstable_mockModule("../investments/pricing/brapi-quote-provider.js", () => ({
@@ -374,15 +421,38 @@ jest.unstable_mockModule("../investments/pricing/coingecko-quote-provider.js", (
   createCoinGeckoQuoteProvider: () => ({ fetchQuote: mockFetchQuote }),
 }));
 
-const { setCredential } = await import("./provider-credentials.service.js");
+const { setCredential, getDecryptedCredential } = await import(
+  "./provider-credentials.service.js"
+);
+
+const originalEncryptionKey = process.env.SETTINGS_ENCRYPTION_KEY;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  process.env.SETTINGS_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
+});
+
+afterEach(() => {
+  if (originalEncryptionKey === undefined) {
+    delete process.env.SETTINGS_ENCRYPTION_KEY;
+  } else {
+    process.env.SETTINGS_ENCRYPTION_KEY = originalEncryptionKey;
+  }
+});
 
 describe("setCredential", () => {
   it("valida a chave contra o provider antes de salvar", async () => {
     mockFetchQuote.mockResolvedValueOnce({ unitValueCents: 3800, raw: {} });
+    const onConflictDoUpdate = jest.fn().mockResolvedValue(undefined);
+    dbMock.insert.mockReturnValue({
+      values: jest.fn().mockReturnValue({ onConflictDoUpdate }),
+    });
 
     await setCredential("user-1", "brapi", "chave-valida");
 
     expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", "chave-valida");
+    expect(dbMock.insert).toHaveBeenCalled();
+    expect(onConflictDoUpdate).toHaveBeenCalled();
   });
 
   it("propaga o erro e não salva quando a validação falha", async () => {
@@ -393,19 +463,61 @@ describe("setCredential", () => {
     await expect(
       setCredential("user-1", "brapi", "chave-invalida"),
     ).rejects.toThrow(QuoteProviderError);
+    expect(dbMock.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("getDecryptedCredential", () => {
+  it("retorna null quando não há credencial cadastrada", async () => {
+    dbMock.select.mockReturnValue({
+      from: () => ({
+        where: () => ({
+          limit: () => Promise.resolve([]),
+        }),
+      }),
+    });
+
+    const result = await getDecryptedCredential("user-1", "coingecko");
+
+    expect(result).toBeNull();
+  });
+
+  it("retorna null (sem lançar) quando a linha armazenada não descriptografa", async () => {
+    dbMock.select.mockReturnValue({
+      from: () => ({
+        where: () => ({
+          limit: () =>
+            Promise.resolve([
+              {
+                encryptedValue: "aW52YWxpZG8=",
+                iv: Buffer.alloc(12, 2).toString("base64"),
+                authTag: Buffer.alloc(16, 3).toString("base64"),
+              },
+            ]),
+        }),
+      }),
+    });
+
+    const result = await getDecryptedCredential("user-1", "brapi");
+
+    expect(result).toBeNull();
   });
 });
 ```
 
-Note: this test file requires a running local Postgres for the (mocked-out)
-DB layer's connection setup — same requirement as every other
-`*.service.test.ts` in this module tree; it is a `unit`-project test (no
-`tests/integration/` involvement), matching `patrimony.service.test.ts`'s
-placement.
+This mocks `@money-manager/db` the same way `telegram.service.test.ts` does
+(a shared `dbMock` with one `jest.fn()` per query-builder entry point,
+`getDb: () => dbMock`, and table columns as plain string values — `eq`/`and`
+from `drizzle-orm` are real and don't care about the column object's
+runtime shape). The second `getDecryptedCredential` test deliberately
+constructs an `authTag`/`iv` that won't authenticate against the real
+`decryptSecret` (Task 2) so the GCM auth-tag check fails, exercising the
+service's catch-and-return-null path (spec §1.7) instead of letting the
+exception propagate.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit -t "setCredential"`
+Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit provider-credentials.service.test.ts`
 Expected: FAIL — `provider-credentials.service.js` does not exist yet.
 
 - [ ] **Step 3: Implement**
@@ -525,8 +637,8 @@ export async function getDecryptedCredential(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit -t "setCredential"`
-Expected: PASS, both tests.
+Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit provider-credentials.service.test.ts`
+Expected: PASS, all 4 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -977,16 +1089,7 @@ git commit -m "refactor(api): pass provider api keys as fetchQuote parameters"
 - Consumes: `getDecryptedCredential` (Task 4), the new `fetchQuote(symbol, apiKey?)`
   signature (Task 6).
 
-- [ ] **Step 1: Read the existing test file first**
-
-Read `apps/api/src/modules/investments/pricing/quote-refresh.service.test.ts`
-in full before editing anything, to match its existing mocking conventions
-exactly (how it currently mocks `createQuoteRouter`/the provider, and its
-`describe`/`it` naming style in Portuguese) — this plan does not reproduce
-its current content since it wasn't read while writing this plan; follow
-the file's own established patterns for the new test in Step 3.
-
-- [ ] **Step 2: Modify `refreshHoldingQuote`**
+- [ ] **Step 1: Modify `refreshHoldingQuote`**
 
 In `apps/api/src/modules/investments/pricing/quote-refresh.service.ts`,
 add the import:
@@ -1020,24 +1123,91 @@ and the `catch` block — is unchanged; the existing catch already converts
 any thrown `QuoteProviderError`, including the new "sem chave configurada"
 message from Task 6, into `last_quote_error` exactly as it does today)
 
-- [ ] **Step 3: Add a test for the no-credential case**
+- [ ] **Step 2: Update the test file**
 
-Add a new test to `quote-refresh.service.test.ts`, in the same `describe`
-block that covers `refreshHoldingQuote`'s error path, following that
-file's existing mocking style: mock `getDecryptedCredential` (from
-`../../provider-credentials/provider-credentials.service.js`) to resolve
-`null`, mock the routed provider's `fetchQuote` to reject with
-`new QuoteProviderError("Configure sua chave da Brapi em Configurações para ativar a cotação automática.")`
-(matching Task 6's Brapi provider behavior when `apiKey` is falsy), call
-`refreshHoldingQuote` for a `variable_income`/`stocks` holding, and assert
-the returned holding's `lastQuoteError` equals that exact message.
+`quote-refresh.service.test.ts` mocks `@money-manager/db`,
+`./quote-cache.repository.js`, and `./quote-router.js` at the top via
+`jest.unstable_mockModule`, then does `const { refreshHoldingQuote } =
+await import("./quote-refresh.service.js")`. Add a fourth mock for the new
+import, right after the existing `quote-router.js` mock block (before the
+`await import(...)` line):
 
-- [ ] **Step 4: Run tests to verify they pass**
+```ts
+const mockGetDecryptedCredential = jest.fn();
+jest.unstable_mockModule(
+  "../../provider-credentials/provider-credentials.service.js",
+  () => ({ getDecryptedCredential: mockGetDecryptedCredential }),
+);
+```
 
-Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit -t "refreshHoldingQuote"`
-Expected: PASS, including the new test.
+In the `describe("refreshHoldingQuote", ...)` block's `beforeEach`, add a
+reset line alongside the existing three:
 
-- [ ] **Step 5: Commit**
+```ts
+  beforeEach(() => {
+    mockUpdate.mockReturnValue({ set: mockSet });
+    mockGetCachedQuote.mockReset();
+    mockUpsertCachedQuote.mockReset();
+    mockFetchQuote.mockReset();
+    mockGetDecryptedCredential.mockReset();
+  });
+```
+
+The existing test `"busca cotação nova quando cache expirou (background)"`
+asserts `expect(mockFetchQuote).toHaveBeenCalledWith("PETR4")` — after this
+task's change, `fetchQuote` is always called with two arguments (the
+second being `undefined` when no credential is configured), so a
+1-argument `toHaveBeenCalledWith` no longer matches. Update that one
+assertion:
+
+```ts
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", undefined);
+```
+
+(this is the only existing assertion that touches `fetchQuote`'s call
+arguments — every other existing test either asserts `fetchQuote` was
+NOT called, or doesn't inspect its arguments at all, so no other test
+needs changes)
+
+Then add two new tests in the same `describe("refreshHoldingQuote", ...)`
+block, after the existing `"registra um log de aviso..."` test:
+
+```ts
+  it("busca a credencial do usuário e repassa como apiKey ao provider", async () => {
+    mockGetCachedQuote.mockResolvedValue(null);
+    mockGetDecryptedCredential.mockResolvedValue("chave-do-usuario");
+    mockFetchQuote.mockResolvedValue({ unitValueCents: 3900, raw: {} });
+
+    await refreshHoldingQuote(holding() as never, "on-demand");
+
+    expect(mockGetDecryptedCredential).toHaveBeenCalledWith("user1", "brapi");
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", "chave-do-usuario");
+  });
+
+  it("repassa undefined ao provider quando não há credencial cadastrada", async () => {
+    mockGetCachedQuote.mockResolvedValue(null);
+    mockGetDecryptedCredential.mockResolvedValue(null);
+    mockFetchQuote.mockRejectedValue(
+      new Error(
+        "Configure sua chave da Brapi em Configurações para ativar a cotação automática.",
+      ),
+    );
+
+    const result = await refreshHoldingQuote(holding() as never, "on-demand");
+
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", undefined);
+    expect(result.lastQuoteError).toBe(
+      "Configure sua chave da Brapi em Configurações para ativar a cotação automática.",
+    );
+  });
+```
+
+- [ ] **Step 3: Run tests to verify they pass**
+
+Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects unit quote-refresh.service.test.ts`
+Expected: PASS, all 9 tests (7 existing + 2 new).
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/modules/investments/pricing/quote-refresh.service.ts apps/api/src/modules/investments/pricing/quote-refresh.service.test.ts
@@ -1078,11 +1248,21 @@ SETTINGS_ENCRYPTION_KEY=
 
 - [ ] **Step 2: Update `.env.prod.example`**
 
-Apply the same replacement to lines 33-34 of `.env.prod.example` (verify
-the exact surrounding lines in that file first, since its section header
-wording may differ slightly from `.env.example` — replace only the
-`BRAPI_TOKEN=` / `COINGECKO_API_KEY=` lines and whatever header directly
-precedes them, adding `SETTINGS_ENCRYPTION_KEY=` in their place).
+Replace lines 32-34 (identical header wording to `.env.example`):
+
+```
+# ── Cotações RV (Brapi / CoinGecko — usadas pela api)
+BRAPI_TOKEN=
+COINGECKO_API_KEY=
+```
+
+with:
+
+```
+# ── Chaves por usuário (Brapi / CoinGecko) — configuradas em Settings, não aqui
+# ── Criptografia de credenciais por usuário
+SETTINGS_ENCRYPTION_KEY=
+```
 
 - [ ] **Step 3: Update `docker-compose.yml`**
 
@@ -1403,55 +1583,446 @@ git commit -m "feat(web): add provider credentials section to settings"
 
 **Files:**
 - Create: `apps/api/tests/integration/provider-credentials.integration.test.ts`
+- Modify: `apps/api/tests/integration/investment-holdings.integration.test.ts`
 
 **Interfaces:**
-- Consumes: the `/v1/me/provider-credentials` routes (Task 5). Read one
-  existing integration test file in full first (e.g.
-  `apps/api/tests/integration/investment-accounts.integration.test.ts`) to
-  match this suite's exact auth-setup helpers (how a test user/session is
-  created) and `supertest` usage conventions before writing new tests —
-  this plan does not reproduce that boilerplate since it varies by
-  helper-module import paths already established in that directory.
+- Consumes: the `/v1/me/provider-credentials` routes (Task 5), the
+  `SETTINGS_ENCRYPTION_KEY` test default (Task 2 Step 5).
+
+This module's routes call the real `createBrapiQuoteProvider()` /
+`createCoinGeckoQuoteProvider()` with no injected `fetchFn` (see Task 4),
+so they use the global `fetch`. Node's `fetch` is a mutable global and
+`fetchFn: typeof fetch = fetch` (the providers' default parameter) is
+evaluated per-call, not at module load — so monkey-patching
+`globalThis.fetch` before a request reaches the controller works. This
+suite is the only place that needs to do that; `supertest` itself talks to
+the app directly over Node's `http` module and never goes through
+`fetch`, so there's no conflict.
 
 - [ ] **Step 1: Write the tests**
 
-Create `apps/api/tests/integration/provider-credentials.integration.test.ts`
-following the auth/setup conventions read in the file referenced above,
-covering:
+Create `apps/api/tests/integration/provider-credentials.integration.test.ts`:
 
-1. `GET /v1/me/provider-credentials` without auth → 401.
-2. `PUT /v1/me/provider-credentials/brapi` without auth → 401.
-3. `PUT /v1/me/provider-credentials/brapi` with an invalid `:provider`
-   value (e.g. `/v1/me/provider-credentials/yahoo`) → 400.
-4. `PUT /v1/me/provider-credentials/brapi` with `{ apiKey: "" }` → 400
-   (Zod `.min(1)` rejects it before any provider call).
-5. `PUT /v1/me/provider-credentials/brapi` with a valid key (mock global
-   `fetch` to resolve a valid Brapi payload for the validation call) → 204,
-   then `GET` lists `{ provider: "brapi", updatedAt: <string> }`.
-6. `PUT /v1/me/provider-credentials/brapi` where the mocked `fetch`
-   resolves `{ ok: false, status: 401 }` (simulating Brapi rejecting the
-   key) → 400, and a subsequent `GET` does NOT list `brapi` (nothing was
-   persisted).
-7. `DELETE /v1/me/provider-credentials/brapi` on a configured credential →
-   204, subsequent `GET` no longer lists it.
-8. `DELETE /v1/me/provider-credentials/coingecko` with nothing configured
-   → 404.
+```ts
+import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import request from "supertest";
+import { createTestApp } from "../helpers/app.js";
+import { registerUser } from "../helpers/auth.js";
+import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
 
-- [ ] **Step 2: Run the integration suite**
+function mockValidBrapiFetch() {
+  globalThis.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      results: [{ symbol: "PETR4", regularMarketPrice: 38.42 }],
+    }),
+  }) as unknown as typeof fetch;
+}
 
-Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects integration --runInBand -t "provider-credentials"`
-Expected: PASS, all 8 cases.
+describeWithDb("provider credentials integration", () => {
+  const app = createTestApp();
+  const originalFetch = globalThis.fetch;
 
-- [ ] **Step 3: Run the full suite**
+  useIntegrationDbLifecycle();
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("GET /v1/me/provider-credentials retorna 401 sem auth", async () => {
+    const res = await request(app).get("/v1/me/provider-credentials");
+    expect(res.status).toBe(401);
+  });
+
+  it("PUT /v1/me/provider-credentials/brapi retorna 401 sem auth", async () => {
+    const res = await request(app)
+      .put("/v1/me/provider-credentials/brapi")
+      .send({ apiKey: "qualquer-coisa" });
+    expect(res.status).toBe(401);
+  });
+
+  it("PUT com :provider inválido retorna 400", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .put("/v1/me/provider-credentials/yahoo")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ apiKey: "qualquer-coisa" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT com apiKey vazia retorna 400", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .put("/v1/me/provider-credentials/brapi")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ apiKey: "" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT com chave válida salva e GET lista a credencial", async () => {
+    const { accessToken } = await registerUser(app);
+    mockValidBrapiFetch();
+
+    const putRes = await request(app)
+      .put("/v1/me/provider-credentials/brapi")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ apiKey: "chave-valida" });
+    expect(putRes.status).toBe(204);
+
+    const getRes = await request(app)
+      .get("/v1/me/provider-credentials")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.items).toHaveLength(1);
+    expect(getRes.body.items[0].provider).toBe("brapi");
+    expect(typeof getRes.body.items[0].updatedAt).toBe("string");
+  });
+
+  it("PUT com chave rejeitada pelo provider retorna 400 e não salva nada", async () => {
+    const { accessToken } = await registerUser(app);
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+    }) as unknown as typeof fetch;
+
+    const putRes = await request(app)
+      .put("/v1/me/provider-credentials/brapi")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ apiKey: "chave-invalida" });
+    expect(putRes.status).toBe(400);
+    expect(putRes.body.code).toBe("BAD_REQUEST");
+
+    const getRes = await request(app)
+      .get("/v1/me/provider-credentials")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(getRes.body.items).toHaveLength(0);
+  });
+
+  it("DELETE remove uma credencial configurada", async () => {
+    const { accessToken } = await registerUser(app);
+    mockValidBrapiFetch();
+    await request(app)
+      .put("/v1/me/provider-credentials/brapi")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({ apiKey: "chave-valida" });
+
+    const deleteRes = await request(app)
+      .delete("/v1/me/provider-credentials/brapi")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(deleteRes.status).toBe(204);
+
+    const getRes = await request(app)
+      .get("/v1/me/provider-credentials")
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(getRes.body.items).toHaveLength(0);
+  });
+
+  it("DELETE em provider sem credencial cadastrada retorna 404", async () => {
+    const { accessToken } = await registerUser(app);
+
+    const res = await request(app)
+      .delete("/v1/me/provider-credentials/coingecko")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("NOT_FOUND");
+  });
+});
+```
+
+- [ ] **Step 2: Fix `investment-holdings.integration.test.ts`'s BRAPI_TOKEN-based tests**
+
+This existing file has 5 tests that set/delete `process.env.BRAPI_TOKEN`
+directly to control whether the Brapi provider succeeds or fails — after
+Task 6 removed that env-var read entirely, these tests would silently
+break (the provider always gets `undefined` unless a credential exists,
+so `fetchSpy` never gets called and every quote fetch fails). Fix each by
+configuring a real credential through the new endpoint instead of an env
+var — since `setCredential` also calls `fetchQuote` once to validate
+before saving (Task 4), and that validation call goes through the same
+mocked `globalThis.fetch`, the expected `fetchSpy` call counts in three of
+these tests shift up by exactly one (the validation call).
+
+Replace the test at line 171 (`"POST /v1/investment-holdings/:id/refresh-quote
+busca cotação e respeita throttle de 1 min"`):
+
+```ts
+  it("POST /v1/investment-holdings/:id/refresh-quote busca cotação e respeita throttle de 1 min", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+
+    const fetchSpy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          results: [{ symbol: "PETR4", regularMarketPrice: 40 }],
+        }),
+      } as Response);
+
+    try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
+      const rvRes = await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 10,
+        });
+      const rvId = rvRes.body.id as string;
+
+      const firstRefresh = await request(app)
+        .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
+        .set("Authorization", `Bearer ${accessToken}`);
+      expect(firstRefresh.status).toBe(200);
+      expect(firstRefresh.body.currentUnitValueCents).toBe(4000);
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // 1 validação (PUT) + 1 cotação
+
+      const secondRefresh = await request(app)
+        .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
+        .set("Authorization", `Bearer ${accessToken}`);
+      expect(secondRefresh.status).toBe(200);
+      expect(fetchSpy).toHaveBeenCalledTimes(2); // throttled, sem chamada nova
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+```
+
+Replace the test at (originally) line 221 (`"...nunca retorna erro HTTP
+quando o provider falha"`) — this one gets simpler, since "no credential
+configured" is now the default state and needs no setup at all:
+
+```ts
+  it("POST /v1/investment-holdings/:id/refresh-quote nunca retorna erro HTTP quando o provider falha", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+
+    const rvRes = await request(app)
+      .post("/v1/investment-holdings")
+      .set("Authorization", `Bearer ${accessToken}`)
+      .send({
+        accountId,
+        symbol: "PETR4",
+        incomeType: "variable_income",
+        assetClass: "stocks",
+        quantity: 10,
+      });
+    const rvId = rvRes.body.id as string;
+
+    const res = await request(app)
+      .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.lastQuoteError).toContain("Configure sua chave da Brapi");
+  });
+```
+
+Replace the test at (originally) line 255 (`"GET /v1/patrimony/summary
+reflete..."`) — same fix as the first test, add the `PUT` call, no
+`fetchSpy` count assertion in this one so nothing else changes:
+
+```ts
+  it("GET /v1/patrimony/summary reflete quantity × cotação e byAssetClass real para holdings RV", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ symbol: "PETR4", regularMarketPrice: 40 }],
+      }),
+    } as Response);
+
+    try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
+      const rvRes = await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 10,
+        });
+      const rvId = rvRes.body.id as string;
+      await request(app)
+        .post(`/v1/investment-holdings/${rvId}/refresh-quote`)
+        .set("Authorization", `Bearer ${accessToken}`);
+
+      const summaryRes = await request(app)
+        .get("/v1/patrimony/summary")
+        .set("Authorization", `Bearer ${accessToken}`);
+
+      expect(summaryRes.status).toBe(200);
+      expect(summaryRes.body.investmentsCents).toBe(40000);
+      expect(summaryRes.body.byAssetClass).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ class: "stocks", totalCents: 40000 }),
+        ]),
+      );
+      expect(summaryRes.body.quotesStale).toBe(false);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+```
+
+Replace the test at (originally) line 305 (`"POST /v1/investments/refresh-quotes
+atualiza todas as posições RV do usuário em lote"`) — two holdings with
+different symbols (PETR4, VALE3), so the batch refresh makes 2 quote
+calls; add 1 for the validation call:
+
+```ts
+  it("POST /v1/investments/refresh-quotes atualiza todas as posições RV do usuário em lote", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ symbol: "PETR4", regularMarketPrice: 40 }],
+      }),
+    } as Response);
+
+    try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
+      await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 10,
+        });
+      await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "VALE3",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 5,
+        });
+
+      const res = await request(app)
+        .post("/v1/investments/refresh-quotes")
+        .set("Authorization", `Bearer ${accessToken}`);
+      expect(res.status).toBe(204);
+
+      const listRes = await request(app)
+        .get("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`);
+      const values = (listRes.body.items as { currentUnitValueCents: number }[])
+        .map((h) => h.currentUnitValueCents);
+      expect(values).toEqual([4000, 4000]);
+      expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 validação (PUT) + 2 cotações (PETR4, VALE3)
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+```
+
+Replace the test at (originally) line 361 (`"compartilha uma única chamada
+externa entre duas posições com o mesmo símbolo"`) — two holdings with the
+SAME symbol (PETR4), so the batch refresh makes only 1 quote call (second
+holding reuses the cache); add 1 for the validation call:
+
+```ts
+  it("compartilha uma única chamada externa entre duas posições com o mesmo símbolo", async () => {
+    const { accessToken } = await registerUser(app);
+    const accountId = await createAccount(app, accessToken);
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [{ symbol: "PETR4", regularMarketPrice: 40 }],
+      }),
+    } as Response);
+
+    try {
+      await request(app)
+        .put("/v1/me/provider-credentials/brapi")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ apiKey: "test-token" });
+
+      await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 10,
+        });
+      await request(app)
+        .post("/v1/investment-holdings")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          accountId,
+          symbol: "PETR4",
+          incomeType: "variable_income",
+          assetClass: "stocks",
+          quantity: 20,
+        });
+
+      const res = await request(app)
+        .post("/v1/investments/refresh-quotes")
+        .set("Authorization", `Bearer ${accessToken}`);
+      expect(res.status).toBe(204);
+
+      // 1 validação (PUT) + 1 cotação: as duas posições PETR4 compartilham o
+      // cache, então a segunda não gera uma nova chamada ao provider.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+```
+
+None of these five tests reference `BRAPI_TOKEN` anymore, so the
+`originalToken` save/restore boilerplate is gone from all of them — check
+after editing that `grep -n "BRAPI_TOKEN" investment-holdings.integration.test.ts`
+returns nothing.
+
+- [ ] **Step 3: Run the integration suite**
+
+Run: `cd "apps/api" && node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --selectProjects integration --runInBand provider-credentials.integration.test.ts investment-holdings.integration.test.ts`
+Expected: PASS — 8 tests in the new file, all tests in
+`investment-holdings.integration.test.ts` (including the 5 just rewritten).
+
+- [ ] **Step 4: Run the full suite**
 
 Run: `pnpm --filter @money-manager/api test`
 Expected: PASS — full unit + integration suite green, including every file
 touched by Tasks 2, 4, 6, 7.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api/tests/integration/provider-credentials.integration.test.ts
+git add apps/api/tests/integration/provider-credentials.integration.test.ts apps/api/tests/integration/investment-holdings.integration.test.ts
 git commit -m "test(api): add provider-credentials integration coverage"
 ```
 
