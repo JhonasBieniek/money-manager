@@ -1,5 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
-import { computePatrimonySummary } from "./patrimony.service.js";
+import {
+  computePatrimonySummary,
+  subtractMonthsClamped,
+} from "./patrimony.service.js";
 
 type HoldingFixture = Parameters<typeof computePatrimonySummary>[0][number];
 type AccountFixture = Parameters<typeof computePatrimonySummary>[1][number];
@@ -355,5 +358,42 @@ describe("computePatrimonySummary", () => {
     );
 
     expect(result.quotesStale).toBe(false);
+  });
+});
+
+describe("subtractMonthsClamped", () => {
+  it("subtrai meses normalmente quando o dia existe no mês de destino", () => {
+    const result = subtractMonthsClamped(new Date(2026, 0, 15), 1);
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(11);
+    expect(result.getDate()).toBe(15);
+  });
+
+  it("limita o dia ao último dia do mês de destino quando ele não existe (31 de julho − 3 meses)", () => {
+    const result = subtractMonthsClamped(new Date(2026, 6, 31), 3);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(3);
+    expect(result.getDate()).toBe(30);
+  });
+
+  it("volta corretamente mais de 12 meses, cruzando anos", () => {
+    const result = subtractMonthsClamped(new Date(2026, 2, 10), 14);
+    expect(result.getFullYear()).toBe(2025);
+    expect(result.getMonth()).toBe(0);
+    expect(result.getDate()).toBe(10);
+  });
+
+  it("limita ao último dia de fevereiro em ano não bissexto", () => {
+    const result = subtractMonthsClamped(new Date(2026, 2, 31), 1);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(1);
+    expect(result.getDate()).toBe(28);
+  });
+
+  it("limita ao último dia de fevereiro em ano bissexto", () => {
+    const result = subtractMonthsClamped(new Date(2028, 2, 31), 1);
+    expect(result.getFullYear()).toBe(2028);
+    expect(result.getMonth()).toBe(1);
+    expect(result.getDate()).toBe(29);
   });
 });

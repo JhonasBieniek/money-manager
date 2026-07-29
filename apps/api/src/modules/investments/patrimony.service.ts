@@ -244,12 +244,25 @@ export async function registerSnapshot(
   return toPatrimonySnapshot(row);
 }
 
+export function subtractMonthsClamped(date: Date, months: number): Date {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const targetMonthIndex = month - months;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const clampedDay = Math.min(date.getDate(), daysInTargetMonth);
+
+  const result = new Date(date);
+  result.setFullYear(targetYear, targetMonth, clampedDay);
+  return result;
+}
+
 export async function getPatrimonyHistory(
   userId: string,
   months: number,
 ): Promise<PatrimonyHistoryPoint[]> {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - months);
+  const cutoff = subtractMonthsClamped(new Date(), months);
   const cutoffStr = toDateString(cutoff);
 
   const rows = await getDb()
