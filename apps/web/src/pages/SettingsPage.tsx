@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TelegramLinkSection } from "../components/features/settings/telegram-link-section";
+import { ProviderCredentialsSection } from "../components/features/settings/provider-credentials-section";
 import { fetchProfile, logout } from "../lib/api";
 
 export function SettingsPage() {
@@ -43,6 +44,7 @@ export function SettingsPage() {
       </div>
 
       <TelegramLinkSection />
+      <ProviderCredentialsSection />
     </div>
   );
 }
