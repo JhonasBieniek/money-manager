@@ -10,3 +10,4 @@ export * from "./api/credit-cards.js";
 export * from "./api/debts.js";
 export * from "./api/investments.js";
 export * from "./api/piggy-banks.js";
+export * from "./api/provider-credentials.js";
