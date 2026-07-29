@@ -112,7 +112,7 @@ money-manager-v3/
 
 ```bash
 cp .env.example .env
-# Required: JWT_ACCESS_SECRET, JWT_REFRESH_SECRET (openssl rand -base64 32)
+# Required: JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, SETTINGS_ENCRYPTION_KEY (openssl rand -base64 32)
 # Optional: TELEGRAM_BOT_TOKEN for voice expenses
 docker compose up --build
 ```

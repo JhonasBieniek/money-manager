@@ -1,5 +1,5 @@
 import { getDb, investmentHoldings } from "@money-manager/db";
-import type { PricingSource } from "@money-manager/types";
+import type { PricingSource, ProviderCredentialProvider } from "@money-manager/types";
 import { and, eq, isNull } from "drizzle-orm";
 import { getCachedQuote, upsertCachedQuote } from "./quote-cache.repository.js";
 import { createQuoteRouter } from "./quote-router.js";
@@ -108,7 +108,7 @@ export async function refreshHoldingQuote(
     // (see pricingSourceForAssetClass + ROUTABLE_ASSET_CLASSES in types.ts).
     const apiKey = await getDecryptedCredential(
       holding.userId,
-      pricingSource as "brapi" | "coingecko",
+      pricingSource as ProviderCredentialProvider,
     );
     const result = await provider.fetchQuote(holding.symbol, apiKey ?? undefined);
     const expiresAt = new Date(now.getTime() + cacheTtlMs(now));

@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import request from "supertest";
+import { decodeJwt } from "jose";
+import { getDb, userProviderCredentials } from "@money-manager/db";
+import { eq } from "drizzle-orm";
 import { createTestApp } from "../helpers/app.js";
 import { registerUser } from "../helpers/auth.js";
 import { describeWithDb, useIntegrationDbLifecycle } from "../helpers/db.js";
+import { decryptSecret } from "../../src/shared/crypto/secret-encryption.js";
 
 function mockValidBrapiFetch() {
   globalThis.fetch = jest.fn().mockResolvedValue({
@@ -59,6 +63,7 @@ describeWithDb("provider credentials integration", () => {
 
   it("PUT com chave válida salva e GET lista a credencial", async () => {
     const { accessToken } = await registerUser(app);
+    const userId = decodeJwt(accessToken).sub as string;
     mockValidBrapiFetch();
 
     const putRes = await request(app)
@@ -74,6 +79,16 @@ describeWithDb("provider credentials integration", () => {
     expect(getRes.body.items).toHaveLength(1);
     expect(getRes.body.items[0].provider).toBe("brapi");
     expect(typeof getRes.body.items[0].updatedAt).toBe("string");
+    expect(Object.keys(getRes.body.items[0]).sort()).toEqual(["provider", "updatedAt"]);
+
+    const [row] = await getDb()
+      .select()
+      .from(userProviderCredentials)
+      .where(eq(userProviderCredentials.userId, userId));
+
+    expect(row).toBeDefined();
+    expect(row.encryptedValue).not.toBe("chave-valida");
+    expect(decryptSecret(row)).toBe("chave-valida");
   });
 
   it("PUT com chave rejeitada pelo provider retorna 400 e não salva nada", async () => {

@@ -1,18 +1,16 @@
 import { getDb, userProviderCredentials } from "@money-manager/db";
-import type { ProviderCredentialSummary } from "@money-manager/types";
+import type { ProviderCredentialProvider, ProviderCredentialSummary } from "@money-manager/types";
 import { and, eq } from "drizzle-orm";
 import { decryptSecret, encryptSecret } from "../../shared/crypto/secret-encryption.js";
 import { createBrapiQuoteProvider } from "../investments/pricing/brapi-quote-provider.js";
 import { createCoinGeckoQuoteProvider } from "../investments/pricing/coingecko-quote-provider.js";
 
-type Provider = "brapi" | "coingecko";
-
-const VALIDATION_SYMBOL: Record<Provider, string> = {
+const VALIDATION_SYMBOL: Record<ProviderCredentialProvider, string> = {
   brapi: "PETR4",
   coingecko: "bitcoin",
 };
 
-async function validateApiKey(provider: Provider, apiKey: string): Promise<void> {
+async function validateApiKey(provider: ProviderCredentialProvider, apiKey: string): Promise<void> {
   const quoteProvider =
     provider === "brapi"
       ? createBrapiQuoteProvider()
@@ -32,14 +30,14 @@ export async function listCredentials(
     .where(eq(userProviderCredentials.userId, userId));
 
   return rows.map((row) => ({
-    provider: row.provider as Provider,
+    provider: row.provider as ProviderCredentialProvider,
     updatedAt: row.updatedAt.toISOString(),
   }));
 }
 
 export async function setCredential(
   userId: string,
-  provider: Provider,
+  provider: ProviderCredentialProvider,
   apiKey: string,
 ): Promise<void> {
   await validateApiKey(provider, apiKey);
@@ -58,7 +56,7 @@ export async function setCredential(
 
 export async function deleteCredential(
   userId: string,
-  provider: Provider,
+  provider: ProviderCredentialProvider,
 ): Promise<boolean> {
   const deleted = await getDb()
     .delete(userProviderCredentials)
@@ -75,7 +73,7 @@ export async function deleteCredential(
 
 export async function getDecryptedCredential(
   userId: string,
-  provider: Provider,
+  provider: ProviderCredentialProvider,
 ): Promise<string | null> {
   const [row] = await getDb()
     .select({
