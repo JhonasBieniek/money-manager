@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { getUserId } from "../../shared/types/request.js";
+import { todayBrtString } from "../investments/brt-date.js";
 import {
   goalUsageQuerySchema,
   upsertGoalsBodySchema,
@@ -17,11 +18,20 @@ export async function upsert(req: Request, res: Response): Promise<void> {
   res.status(200).json({ items });
 }
 
+export function resolveUsageYearMonth(
+  query: { year?: number; month?: number },
+  now: Date,
+): { year: number; month: number } {
+  const [brtYear, brtMonth] = todayBrtString(now).split("-").map(Number);
+  return {
+    year: query.year ?? brtYear!,
+    month: query.month ?? brtMonth!,
+  };
+}
+
 export async function usage(req: Request, res: Response): Promise<void> {
   const query = goalUsageQuerySchema.parse(req.query);
-  const now = new Date();
-  const year = query.year ?? now.getFullYear();
-  const month = query.month ?? now.getMonth() + 1;
+  const { year, month } = resolveUsageYearMonth(query, new Date());
   const items = await goalsService.getGoalUsage(getUserId(req), year, month);
   res.status(200).json({ items });
 }

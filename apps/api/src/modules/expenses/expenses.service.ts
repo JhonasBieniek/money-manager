@@ -10,6 +10,7 @@ import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, sum } from "driz
 import { BadRequestError, NotFoundError } from "../../shared/errors/app-error.js";
 import { assertTagsBelongToUser } from "../tags/tags.service.js";
 import { syncUserDebtsForMonth } from "../debts/debts.service.js";
+import { todayBrtString } from "../investments/brt-date.js";
 import {
   assignExpenseToStatement,
 } from "../credit-cards/credit-cards.service.js";
@@ -323,7 +324,10 @@ export async function categorizeBotExpense(
   return categorizeExpense(account.userId, expenseId, input);
 }
 
-function resolveSyncMonthYear(query: ListExpensesQuery): {
+export function resolveSyncMonthYear(
+  now: Date,
+  query: Pick<ListExpensesQuery, "year" | "month">,
+): {
   year: number;
   month: number;
 } {
@@ -331,15 +335,15 @@ function resolveSyncMonthYear(query: ListExpensesQuery): {
     return { year: query.year, month: query.month };
   }
 
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  const [year, month] = todayBrtString(now).split("-").map(Number);
+  return { year: year!, month: month! };
 }
 
 export async function listExpenses(
   userId: string,
   query: ListExpensesQuery,
 ): Promise<ExpenseListResponse> {
-  const { year, month } = resolveSyncMonthYear(query);
+  const { year, month } = resolveSyncMonthYear(new Date(), query);
   await syncUserDebtsForMonth(userId, year, month);
 
   let filters = buildListFilters(userId, query);

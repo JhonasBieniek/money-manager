@@ -1,16 +1,26 @@
 import type { Request, Response } from "express";
 import { getUserId } from "../../shared/types/request.js";
+import { todayBrtString } from "../investments/brt-date.js";
 import {
   dashboardHistoryQuerySchema,
   dashboardSummaryQuerySchema,
 } from "./dashboard.schema.js";
 import * as dashboardService from "./dashboard.service.js";
 
+export function resolveSummaryYearMonth(
+  query: { year?: number; month?: number },
+  now: Date,
+): { year: number; month: number } {
+  const [brtYear, brtMonth] = todayBrtString(now).split("-").map(Number);
+  return {
+    year: query.year ?? brtYear!,
+    month: query.month ?? brtMonth!,
+  };
+}
+
 export async function summary(req: Request, res: Response): Promise<void> {
   const query = dashboardSummaryQuerySchema.parse(req.query);
-  const now = new Date();
-  const year = query.year ?? now.getFullYear();
-  const month = query.month ?? now.getMonth() + 1;
+  const { year, month } = resolveSummaryYearMonth(query, new Date());
 
   const data = await dashboardService.getDashboardSummary(
     getUserId(req),

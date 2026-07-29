@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { BadRequestError } from "../../shared/errors/app-error.js";
-import { resolveInstallmentCentsForUpdate } from "./debts.service.js";
+import {
+  resolveCurrentBrtMonth,
+  resolveInstallmentCentsForUpdate,
+} from "./debts.service.js";
 
 const baseExisting = {
   installmentCents: 5000,
@@ -66,5 +69,33 @@ describe("resolveInstallmentCentsForUpdate", () => {
         6,
       ),
     ).toThrow(BadRequestError);
+  });
+});
+
+describe("resolveCurrentBrtMonth", () => {
+  it("retorna ano/mês BRT corrente sem ambiguidade de fuso", () => {
+    const now = new Date("2026-06-15T15:00:00.000Z"); // 12:00 BRT
+    expect(resolveCurrentBrtMonth(now)).toEqual({ year: 2026, month: 6 });
+  });
+
+  it("usa o mês BRT corrente mesmo quando UTC já virou o mês (fuso não-BRT)", () => {
+    // 2026-02-01T01:00:00Z corresponde a 2026-01-31T22:00:00-03:00: já é
+    // fevereiro em UTC, mas ainda é janeiro no horário de Brasília. Uma
+    // implementação baseada em now.getFullYear()/getMonth() sem conversão
+    // para BRT sincronizaria parcelas do mês errado (fevereiro) num host
+    // não-BRT, quitando parcelas de janeiro incorretamente/deixando de
+    // gerar a despesa correspondente.
+    const originalTz = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const now = new Date("2026-02-01T01:00:00.000Z");
+      expect(resolveCurrentBrtMonth(now)).toEqual({ year: 2026, month: 1 });
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
   });
 });

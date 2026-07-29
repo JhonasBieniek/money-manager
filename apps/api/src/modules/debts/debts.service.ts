@@ -23,6 +23,7 @@ import {
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { BadRequestError, NotFoundError } from "../../shared/errors/app-error.js";
 import { assignExpenseToStatement } from "../credit-cards/credit-cards.service.js";
+import { todayBrtString } from "../investments/brt-date.js";
 import type { CreateDebtBody, UpdateDebtBody } from "./debts.schema.js";
 
 const PAYMENT_METHOD_MAP: Record<number, PaymentMethod> = {
@@ -343,9 +344,17 @@ export async function syncUserDebtsForMonth(
   });
 }
 
+export function resolveCurrentBrtMonth(now: Date): {
+  year: number;
+  month: number;
+} {
+  const [year, month] = todayBrtString(now).split("-").map(Number);
+  return { year: year!, month: month! };
+}
+
 async function syncUserDebtsForCurrentMonth(userId: string): Promise<void> {
-  const now = new Date();
-  await syncUserDebtsForMonth(userId, now.getFullYear(), now.getMonth() + 1);
+  const { year, month } = resolveCurrentBrtMonth(new Date());
+  await syncUserDebtsForMonth(userId, year, month);
 }
 
 export async function listDebts(
