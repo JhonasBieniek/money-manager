@@ -11,7 +11,8 @@ import type { BcbSeriesPoint } from "./bcb-provider.js";
 
 export const IPCA_SERIES_CODE = 433;
 export const CDI_SERIES_CODE = 4389;
-const FETCH_POINTS = 14 * 22; // ~14 months of margin; CDI is daily, IPCA is monthly
+const IPCA_FETCH_POINTS = 14; // ~14 months of margin; IPCA is monthly
+const CDI_FETCH_POINTS = 14 * 22; // ~14 months of margin; CDI is daily
 
 function monthKey(dateStr: string): string {
   return dateStr.slice(0, 7);
@@ -44,10 +45,11 @@ async function refreshOneBenchmark(
   benchmark: BenchmarkType,
   seriesCode: number,
   convert: (rawValue: number) => number,
+  pointsToFetch: number,
   now: Date,
 ): Promise<void> {
   const provider = createBcbProvider();
-  const points = await provider.fetchSeries(seriesCode, FETCH_POINTS);
+  const points = await provider.fetchSeries(seriesCode, pointsToFetch);
   const monthly = latestPerMonth(points);
 
   const db = getDb();
@@ -67,13 +69,25 @@ async function refreshOneBenchmark(
 
 export async function refreshBenchmarks(now: Date): Promise<void> {
   try {
-    await refreshOneBenchmark("ipca", IPCA_SERIES_CODE, (v) => v, now);
+    await refreshOneBenchmark(
+      "ipca",
+      IPCA_SERIES_CODE,
+      (v) => v,
+      IPCA_FETCH_POINTS,
+      now,
+    );
   } catch (err) {
     console.error("[benchmark.service] IPCA refresh failed", err);
   }
 
   try {
-    await refreshOneBenchmark("cdi", CDI_SERIES_CODE, annualToMonthlyPct, now);
+    await refreshOneBenchmark(
+      "cdi",
+      CDI_SERIES_CODE,
+      annualToMonthlyPct,
+      CDI_FETCH_POINTS,
+      now,
+    );
   } catch (err) {
     console.error("[benchmark.service] CDI refresh failed", err);
   }
