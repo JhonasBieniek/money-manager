@@ -1,15 +1,17 @@
 import type { PatrimonyAssetClassBucket } from "@money-manager/types";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const COLORS = [
-  "#10b981", // emerald-500
-  "#f59e0b", // amber-500
-  "#3b82f6", // blue-500
-  "#a855f7", // purple-500
-  "#ec4899", // pink-500
-  "#14b8a6", // teal-500
-  "#71717a", // zinc-500
-];
+const ASSET_CLASS_COLORS: Record<string, string> = {
+  fixed_income_group: "#10b981", // emerald-500
+  stocks: "#f59e0b", // amber-500
+  fii: "#3b82f6", // blue-500
+  crypto: "#a855f7", // purple-500
+  fund: "#ec4899", // pink-500
+  real_estate: "#14b8a6", // teal-500
+  cash: "#71717a", // zinc-500
+  other: "#f43f5e", // rose-500
+};
+const DEFAULT_ASSET_CLASS_COLOR = "#52525b"; // zinc-600 fallback
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -46,8 +48,11 @@ export function AllocationDonutChart({ buckets }: AllocationDonutChartProps) {
             outerRadius={90}
             paddingAngle={2}
           >
-            {buckets.map((bucket, index) => (
-              <Cell key={bucket.class} fill={COLORS[index % COLORS.length]} />
+            {buckets.map((bucket) => (
+              <Cell
+                key={bucket.class}
+                fill={ASSET_CLASS_COLORS[bucket.class] ?? DEFAULT_ASSET_CLASS_COLOR}
+              />
             ))}
           </Pie>
           <Tooltip
@@ -67,11 +72,14 @@ export function AllocationDonutChart({ buckets }: AllocationDonutChartProps) {
         </PieChart>
       </ResponsiveContainer>
       <div className="mt-4 flex flex-wrap gap-3">
-        {buckets.map((bucket, index) => (
+        {buckets.map((bucket) => (
           <div key={bucket.class} className="flex items-center gap-2 text-xs">
             <div
               className="h-3 w-3 rounded-sm"
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              style={{
+                backgroundColor:
+                  ASSET_CLASS_COLORS[bucket.class] ?? DEFAULT_ASSET_CLASS_COLOR,
+              }}
             />
             <span className="text-zinc-400">{bucket.label}</span>
           </div>
