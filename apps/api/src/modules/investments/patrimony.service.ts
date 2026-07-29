@@ -258,12 +258,18 @@ export function subtractMonthsClamped(date: Date, months: number): Date {
   return result;
 }
 
+export function computeHistoryCutoffDate(now: Date, months: number): string {
+  const [year, month, day] = todayBrtString(now).split("-").map(Number);
+  const todayBrtAsLocalDate = new Date(year, month - 1, day);
+  const cutoff = subtractMonthsClamped(todayBrtAsLocalDate, months);
+  return toDateString(cutoff);
+}
+
 export async function getPatrimonyHistory(
   userId: string,
   months: number,
 ): Promise<PatrimonyHistoryPoint[]> {
-  const cutoff = subtractMonthsClamped(new Date(), months);
-  const cutoffStr = toDateString(cutoff);
+  const cutoffStr = computeHistoryCutoffDate(new Date(), months);
 
   const rows = await getDb()
     .select({

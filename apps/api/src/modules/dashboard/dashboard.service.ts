@@ -7,6 +7,7 @@ import { GOAL_CATEGORY_LABELS } from "@money-manager/types";
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 import * as goalsService from "../goals/goals.service.js";
+import { todayBrtString } from "../investments/brt-date.js";
 
 function monthYearRange(
   year: number,
@@ -17,14 +18,15 @@ function monthYearRange(
   return { start, end };
 }
 
-function buildMonthSlots(
+export function buildMonthSlots(
+  now: Date,
   months: number,
 ): Array<{ year: number; monthNum: number; month: string }> {
-  const now = new Date();
+  const [brtYear, brtMonth] = todayBrtString(now).split("-").map(Number);
   const slots: Array<{ year: number; monthNum: number; month: string }> = [];
 
   for (let i = months - 1; i >= 0; i--) {
-    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const date = new Date(brtYear, brtMonth - 1 - i, 1);
     const year = date.getFullYear();
     const monthNum = date.getMonth() + 1;
     slots.push({
@@ -145,7 +147,7 @@ export async function getDashboardHistory(
   months: number,
 ): Promise<DashboardHistoryMonth[]> {
   const db = getDb();
-  const slots = buildMonthSlots(months);
+  const slots = buildMonthSlots(new Date(), months);
   const first = slots[0];
   const last = slots[slots.length - 1];
 
