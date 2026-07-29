@@ -222,7 +222,7 @@ export async function registerSnapshot(
   const snapshotDate = todayBrtString(now);
   const db = getDb();
 
-  await db
+  const [row] = await db
     .insert(investmentSnapshots)
     .values({
       id: newId(),
@@ -238,20 +238,10 @@ export async function registerSnapshot(
         totalAssetsCents: summary.totalAssetsCents,
         byAssetClass: summary.byAssetClass,
       },
-    });
+    })
+    .returning();
 
-  const [row] = await db
-    .select()
-    .from(investmentSnapshots)
-    .where(
-      and(
-        eq(investmentSnapshots.userId, userId),
-        eq(investmentSnapshots.snapshotDate, snapshotDate),
-      ),
-    )
-    .limit(1);
-
-  return toPatrimonySnapshot(row!);
+  return toPatrimonySnapshot(row);
 }
 
 export async function getPatrimonyHistory(
