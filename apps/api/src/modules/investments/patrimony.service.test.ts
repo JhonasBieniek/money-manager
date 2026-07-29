@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  computeHistoryCutoffDate,
   computePatrimonySummary,
   subtractMonthsClamped,
 } from "./patrimony.service.js";
@@ -395,5 +396,54 @@ describe("subtractMonthsClamped", () => {
     expect(result.getFullYear()).toBe(2028);
     expect(result.getMonth()).toBe(1);
     expect(result.getDate()).toBe(29);
+  });
+});
+
+describe("computeHistoryCutoffDate", () => {
+  it("calcula o corte N meses antes de hoje quando não há ambiguidade de fuso", () => {
+    const now = new Date("2026-01-15T15:00:00.000Z"); // 12:00 BRT, longe da virada do dia
+    expect(computeHistoryCutoffDate(now, 6)).toBe("2025-07-15");
+  });
+
+  it("usa a data BRT de hoje como base do corte, mesmo quando UTC já virou o dia (fuso não-BRT)", () => {
+    // 2026-01-16T01:30:00Z corresponde a 2026-01-15T22:30:00-03:00: já é
+    // "amanhã" em UTC, mas ainda é "hoje" (2026-01-15) no horário de Brasília.
+    // Rodando com TZ=UTC (fuso não-BRT, como CI/produção), uma implementação
+    // que lê Date.getFullYear/Month/Date sem conversão explícita para BRT
+    // calcularia o corte a partir de "2026-01-16", retornando "2025-07-16"
+    // em vez de "2025-07-15" (6 meses antes de hoje em BRT).
+    const originalTz = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const now = new Date("2026-01-16T01:30:00.000Z");
+      expect(computeHistoryCutoffDate(now, 6)).toBe("2025-07-15");
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
+  });
+
+  it("aplica o clamping de fim de mês sobre o dia BRT correto, não sobre o dia UTC deslocado", () => {
+    // 2026-03-30T01:00:00Z corresponde a 2026-03-29T22:00:00-03:00: ainda é
+    // dia 29 em BRT, mas UTC já é dia 30. Um "patch mínimo" que apenas troca
+    // a formatação final do corte por todayBrtString (sem corrigir o dia
+    // usado na aritmética de meses) faria o clamping de fim de mês usar o
+    // dia UTC (30) em vez do dia BRT (29), retornando "2026-02-27" em vez de
+    // "2026-02-28".
+    const originalTz = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const now = new Date("2026-03-30T01:00:00.000Z");
+      expect(computeHistoryCutoffDate(now, 1)).toBe("2026-02-28");
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
   });
 });
