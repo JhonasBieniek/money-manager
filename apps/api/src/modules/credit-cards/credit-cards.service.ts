@@ -27,6 +27,7 @@ import {
   BadRequestError,
   NotFoundError,
 } from "../../shared/errors/app-error.js";
+import { todayBrtString } from "../investments/brt-date.js";
 import type {
   CreateCreditCardBody,
   CurrentStatementsQuery,
@@ -121,9 +122,9 @@ async function getStatementRow(
   return row;
 }
 
-function todayCalendarDate(): Date {
-  const now = new Date();
-  return calendarDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+export function todayCalendarDate(now: Date): Date {
+  const [year, month, day] = todayBrtString(now).split("-").map(Number);
+  return calendarDate(year, month, day);
 }
 
 /** Fecha faturas `open` cujo period_end já passou e abre o próximo ciclo. */
@@ -131,7 +132,7 @@ async function autoCloseExpiredOpenStatements(
   tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
   card: CardRow,
 ): Promise<void> {
-  const today = todayCalendarDate();
+  const today = todayCalendarDate(new Date());
   let guard = 0;
 
   while (guard++ < 24) {

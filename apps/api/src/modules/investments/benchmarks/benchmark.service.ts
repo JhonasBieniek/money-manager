@@ -6,6 +6,7 @@ import type {
 } from "@money-manager/types";
 import { toDateString } from "@money-manager/utils/installment-schedule";
 import { and, asc, eq, gte } from "drizzle-orm";
+import { todayBrtString } from "../brt-date.js";
 import { createBcbProvider } from "./bcb-provider.js";
 import type { BcbSeriesPoint } from "./bcb-provider.js";
 
@@ -93,15 +94,22 @@ export async function refreshBenchmarks(now: Date): Promise<void> {
   }
 }
 
+export function computeBenchmarkStartMonth(
+  now: Date,
+  period: "year" | "12m",
+): string {
+  const [year, month] = todayBrtString(now).split("-").map(Number);
+  if (period === "year") {
+    return `${year}-01-01`;
+  }
+  return toDateString(new Date(year, month - 1 - 11, 1));
+}
+
 export async function getBenchmarkComparison(
   userId: string,
   period: "year" | "12m",
 ): Promise<BenchmarkComparison> {
-  const now = new Date();
-  const startMonth =
-    period === "year"
-      ? `${now.getFullYear()}-01-01`
-      : toDateString(new Date(now.getFullYear(), now.getMonth() - 11, 1));
+  const startMonth = computeBenchmarkStartMonth(new Date(), period);
 
   const db = getDb();
   const [snapshots, rateRows] = await Promise.all([

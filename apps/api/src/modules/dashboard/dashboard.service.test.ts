@@ -41,6 +41,7 @@ jest.unstable_mockModule("../debts/debts.service.js", () => ({
 }));
 
 const dashboardService = await import("./dashboard.service.js");
+const { buildMonthSlots } = dashboardService;
 
 function chainWhere<T>(value: T, grouped = false) {
   if (grouped) {
@@ -190,5 +191,42 @@ describe("getDashboardHistory", () => {
       balance: 830_000,
     });
     expect(dbMock.select).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("buildMonthSlots", () => {
+  it("gera os últimos N meses terminando no mês corrente quando não há ambiguidade de fuso", () => {
+    const now = new Date("2026-06-15T15:00:00.000Z"); // 12:00 BRT
+    const slots = buildMonthSlots(now, 3);
+    expect(slots.map((s) => s.month)).toEqual([
+      "2026-04",
+      "2026-05",
+      "2026-06",
+    ]);
+  });
+
+  it("usa o mês BRT corrente, mesmo quando UTC já virou o mês (fuso não-BRT)", () => {
+    // 2026-02-01T01:00:00Z corresponde a 2026-01-31T22:00:00-03:00: já é
+    // fevereiro em UTC, mas ainda é janeiro no horário de Brasília. Uma
+    // implementação baseada em now.getFullYear()/getMonth() sem conversão
+    // para BRT ancoraria a janela de "últimos N meses" em fevereiro num
+    // host não-BRT, fazendo o dashboard perder o mês corrente (janeiro).
+    const originalTz = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const now = new Date("2026-02-01T01:00:00.000Z");
+      const slots = buildMonthSlots(now, 3);
+      expect(slots.map((s) => s.month)).toEqual([
+        "2025-11",
+        "2025-12",
+        "2026-01",
+      ]);
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
   });
 });
