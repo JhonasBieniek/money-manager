@@ -21,6 +21,12 @@ jest.unstable_mockModule("./quote-router.js", () => ({
   }),
 }));
 
+const mockGetDecryptedCredential = jest.fn();
+jest.unstable_mockModule(
+  "../../provider-credentials/provider-credentials.service.js",
+  () => ({ getDecryptedCredential: mockGetDecryptedCredential }),
+);
+
 const { refreshHoldingQuote } = await import("./quote-refresh.service.js");
 
 function holding(overrides: Record<string, unknown> = {}) {
@@ -53,6 +59,7 @@ describe("refreshHoldingQuote", () => {
     mockGetCachedQuote.mockReset();
     mockUpsertCachedQuote.mockReset();
     mockFetchQuote.mockReset();
+    mockGetDecryptedCredential.mockReset();
   });
 
   it("não faz nada para holdings de renda fixa", async () => {
@@ -106,7 +113,7 @@ describe("refreshHoldingQuote", () => {
 
     await refreshHoldingQuote(holding() as never, "background", now);
 
-    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4");
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", undefined);
     expect(mockUpsertCachedQuote).toHaveBeenCalled();
   });
 
@@ -140,5 +147,33 @@ describe("refreshHoldingQuote", () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  it("busca a credencial do usuário e repassa como apiKey ao provider", async () => {
+    mockGetCachedQuote.mockResolvedValue(null);
+    mockGetDecryptedCredential.mockResolvedValue("chave-do-usuario");
+    mockFetchQuote.mockResolvedValue({ unitValueCents: 3900, raw: {} });
+
+    await refreshHoldingQuote(holding() as never, "on-demand");
+
+    expect(mockGetDecryptedCredential).toHaveBeenCalledWith("user1", "brapi");
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", "chave-do-usuario");
+  });
+
+  it("repassa undefined ao provider quando não há credencial cadastrada", async () => {
+    mockGetCachedQuote.mockResolvedValue(null);
+    mockGetDecryptedCredential.mockResolvedValue(null);
+    mockFetchQuote.mockRejectedValue(
+      new Error(
+        "Configure sua chave da Brapi em Configurações para ativar a cotação automática.",
+      ),
+    );
+
+    const result = await refreshHoldingQuote(holding() as never, "on-demand");
+
+    expect(mockFetchQuote).toHaveBeenCalledWith("PETR4", undefined);
+    expect(result.lastQuoteError).toBe(
+      "Configure sua chave da Brapi em Configurações para ativar a cotação automática.",
+    );
   });
 });

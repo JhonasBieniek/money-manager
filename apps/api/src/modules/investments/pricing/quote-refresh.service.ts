@@ -4,6 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getCachedQuote, upsertCachedQuote } from "./quote-cache.repository.js";
 import { createQuoteRouter } from "./quote-router.js";
 import { pricingSourceForAssetClass } from "./types.js";
+import { getDecryptedCredential } from "../../provider-credentials/provider-credentials.service.js";
 
 export type InvestmentHoldingRow = typeof investmentHoldings.$inferSelect;
 export type RefreshTrigger = "on-demand" | "background";
@@ -103,7 +104,13 @@ export async function refreshHoldingQuote(
   }
 
   try {
-    const result = await provider.fetchQuote(holding.symbol);
+    // Safe: getProvider() above only returns non-null for "brapi"/"coingecko"
+    // (see pricingSourceForAssetClass + ROUTABLE_ASSET_CLASSES in types.ts).
+    const apiKey = await getDecryptedCredential(
+      holding.userId,
+      pricingSource as "brapi" | "coingecko",
+    );
+    const result = await provider.fetchQuote(holding.symbol, apiKey ?? undefined);
     const expiresAt = new Date(now.getTime() + cacheTtlMs(now));
     await upsertCachedQuote({
       symbol: holding.symbol,
