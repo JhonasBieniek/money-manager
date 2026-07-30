@@ -14,7 +14,6 @@ concurrency:
 permissions:
   contents: read
   packages: write
-  actions: read
 
 env:
   REGISTRY: ghcr.io
@@ -40,156 +39,124 @@ jobs:
             echo "deploy_sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-  detect-changes:
+  resolve-baselines:
     needs: meta
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
-      api: ${{ steps.filter.outputs.api }}
-      web: ${{ steps.filter.outputs.web }}
-      bot: ${{ steps.filter.outputs.bot }}
-      stt: ${{ steps.filter.outputs.stt }}
-      shared: ${{ steps.filter.outputs.shared }}
-      workflow: ${{ steps.filter.outputs.workflow }}
+      api: ${{ steps.resolve.outputs.api }}
+      web: ${{ steps.resolve.outputs.web }}
+      bot: ${{ steps.resolve.outputs.bot }}
+      stt: ${{ steps.resolve.outputs.stt }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.meta.outputs.deploy_sha }}
           fetch-depth: 0
 
-      # CI records github.event.before/after on master pushes; CD has no push payload.
-      - name: Download push range from CI
-        if: github.event_name == 'workflow_run'
-        continue-on-error: true
-        uses: actions/download-artifact@v8
+      - uses: docker/setup-buildx-action@v4
+        if: github.event_name != 'workflow_dispatch'
+
+      - name: Log in to GHCR
+        if: github.event_name != 'workflow_dispatch'
+        uses: docker/login-action@v4
         with:
-          name: deploy-range-${{ needs.meta.outputs.deploy_sha }}
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: deploy-range
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve diff base
-        id: diff
+      # Each service's build/retag decision diffs against the commit actually baked
+      # into its own :latest image (read back from a label on the image in GHCR) —
+      # not the previous push. This stays correct across streaks of failed/skipped
+      # CI, where "the previous push" and "the last commit actually built" diverge.
+      - name: Resolve per-service baselines and detect changes
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_SHA: ${{ needs.meta.outputs.deploy_sha }}
+          IMAGE_PREFIX: ${{ needs.meta.outputs.image_prefix }}
         run: |
-          DEPLOY_SHA="${{ needs.meta.outputs.deploy_sha }}"
-          # paths-filter fetches `base` as a refspec, so it must be a real SHA —
-          # "${DEPLOY_SHA}~1" is only valid rev-parse syntax, not a fetchable ref.
-          PARENT_SHA="$(git rev-parse "${DEPLOY_SHA}~1" 2>/dev/null || echo "$DEPLOY_SHA")"
+          SHARED_GLOBS="package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs"
+          WORKFLOW_GLOBS=".github/workflows/cd.yml .github/workflows/ci.yml"
 
-          if [[ -f deploy-range/before && -f deploy-range/after ]]; then
-            BEFORE="$(tr -d '[:space:]' < deploy-range/before)"
-            AFTER="$(tr -d '[:space:]' < deploy-range/after)"
-            echo "Push range from CI: ${BEFORE}..${AFTER}"
+          service_globs() {
+            case "$1" in
+              api) echo "apps/api/** packages/db/** packages/types/** packages/utils/** apps/api/Dockerfile $SHARED_GLOBS $WORKFLOW_GLOBS" ;;
+              web) echo "apps/web/** packages/types/** packages/utils/** apps/web/Dockerfile $SHARED_GLOBS $WORKFLOW_GLOBS" ;;
+              bot) echo "apps/bot/** apps/bot/Dockerfile $SHARED_GLOBS $WORKFLOW_GLOBS" ;;
+              stt) echo "apps/stt/** $WORKFLOW_GLOBS" ;;
+            esac
+          }
 
-            # GitHub sends 40 zeroes for before on the first push or a new branch.
-            if [[ "$BEFORE" =~ ^0+$ ]]; then
-              echo "base=${PARENT_SHA}" >> "$GITHUB_OUTPUT"
-              echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
-              echo "strategy=parent-fallback (zero before)" >> "$GITHUB_OUTPUT"
-            else
-              echo "base=${BEFORE}" >> "$GITHUB_OUTPUT"
-              echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
-              echo "strategy=push-range" >> "$GITHUB_OUTPUT"
+          baseline_sha() {
+            local service="$1"
+            local image="${IMAGE_PREFIX}-${service}"
+            local label
+            label="$(docker buildx imagetools inspect "${image}:latest" --format '{{json .Config.Labels}}' 2>/dev/null | jq -r '.["org.opencontainers.image.revision"] // empty' 2>/dev/null || true)"
+            if [[ -n "$label" ]] && git cat-file -e "${label}^{commit}" 2>/dev/null; then
+              echo "$label"
             fi
-          else
-            # Fallback when artifact is missing (first deploy after this change) or workflow_dispatch.
-            echo "base=${PARENT_SHA}" >> "$GITHUB_OUTPUT"
-            echo "ref=${DEPLOY_SHA}" >> "$GITHUB_OUTPUT"
-            echo "strategy=parent-fallback (no artifact)" >> "$GITHUB_OUTPUT"
-          fi
+          }
 
-      - name: Detect changed paths
-        uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          base: ${{ steps.diff.outputs.base }}
-          ref: ${{ steps.diff.outputs.ref }}
-          filters: |
-            shared:
-              - package.json
-              - pnpm-lock.yaml
-              - pnpm-workspace.yaml
-              - turbo.json
-              - tsconfig.base.json
-              - eslint.config.mjs
-            api:
-              - apps/api/**
-              - packages/db/**
-              - packages/types/**
-              - packages/utils/**
-              - apps/api/Dockerfile
-            web:
-              - apps/web/**
-              - packages/types/**
-              - packages/utils/**
-              - apps/web/Dockerfile
-            bot:
-              - apps/bot/**
-              - apps/bot/Dockerfile
-            stt:
-              - apps/stt/**
-            workflow:
-              - .github/workflows/cd.yml
-              - .github/workflows/ci.yml
+          for service in api web bot stt; do
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "==> ${service}: workflow_dispatch, forcing build"
+              echo "${service}=true" >> "$GITHUB_OUTPUT"
+              continue
+            fi
 
-      - name: Log detected changes
-        run: |
-          echo "diff strategy=${{ steps.diff.outputs.strategy }} base=${{ steps.diff.outputs.base }} ref=${{ steps.diff.outputs.ref }}"
-          echo "api=${{ steps.filter.outputs.api }} web=${{ steps.filter.outputs.web }} bot=${{ steps.filter.outputs.bot }} stt=${{ steps.filter.outputs.stt }}"
-          echo "shared=${{ steps.filter.outputs.shared }} workflow=${{ steps.filter.outputs.workflow }}"
+            base="$(baseline_sha "$service")"
+            if [[ -z "$base" ]]; then
+              echo "==> ${service}: no valid baseline found, forcing build"
+              echo "${service}=true" >> "$GITHUB_OUTPUT"
+              continue
+            fi
+
+            if git diff --quiet "$base" "$DEPLOY_SHA" -- $(service_globs "$service"); then
+              echo "==> ${service}: unchanged since ${base}"
+              echo "${service}=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "==> ${service}: changed since ${base}"
+              echo "${service}=true" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
   # matrix.* is not available in job-level if — resolve service lists here instead.
   resolve-matrix:
-    needs: [meta, detect-changes]
+    needs: [meta, resolve-baselines]
     if: >-
       always() &&
       needs.meta.result == 'success' &&
-      needs.detect-changes.result == 'success'
+      needs.resolve-baselines.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       build_services: ${{ steps.resolve.outputs.build_services }}
       retag_services: ${{ steps.resolve.outputs.retag_services }}
     steps:
-      - name: Resolve build and retag matrices
+      - name: Partition services into build/retag matrices
         id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_CHANGED: ${{ needs.detect-changes.outputs.workflow }}
-          API_CHANGED: ${{ needs.detect-changes.outputs.api }}
-          WEB_CHANGED: ${{ needs.detect-changes.outputs.web }}
-          BOT_CHANGED: ${{ needs.detect-changes.outputs.bot }}
-          STT_CHANGED: ${{ needs.detect-changes.outputs.stt }}
-          SHARED_CHANGED: ${{ needs.detect-changes.outputs.shared }}
+          API_CHANGED: ${{ needs.resolve-baselines.outputs.api }}
+          WEB_CHANGED: ${{ needs.resolve-baselines.outputs.web }}
+          BOT_CHANGED: ${{ needs.resolve-baselines.outputs.bot }}
+          STT_CHANGED: ${{ needs.resolve-baselines.outputs.stt }}
         run: |
-          should_build() {
-            local service="$1"
-
-            if [[ "$EVENT_NAME" == "workflow_dispatch" || "$WORKFLOW_CHANGED" == "true" ]]; then
-              return 0
-            fi
-
-            if [[ "$service" != "stt" && "$SHARED_CHANGED" == "true" ]]; then
-              return 0
-            fi
-
-            case "$service" in
-              api) [[ "$API_CHANGED" == "true" ]] ;;
-              web) [[ "$WEB_CHANGED" == "true" ]] ;;
-              bot) [[ "$BOT_CHANGED" == "true" ]] ;;
-              stt) [[ "$STT_CHANGED" == "true" ]] ;;
-              *) return 1 ;;
-            esac
-          }
-
           build=()
           retag=()
 
           for service in api web bot stt; do
-            if should_build "$service"; then
+            case "$service" in
+              api) changed="$API_CHANGED" ;;
+              web) changed="$WEB_CHANGED" ;;
+              bot) changed="$BOT_CHANGED" ;;
+              stt) changed="$STT_CHANGED" ;;
+            esac
+
+            if [[ "$changed" == "true" ]]; then
               build+=("$service")
-            elif [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            else
               retag+=("$service")
             fi
           done
@@ -211,11 +178,11 @@ jobs:
 
   build:
     name: build ${{ matrix.service }}
-    needs: [meta, detect-changes, resolve-matrix]
+    needs: [meta, resolve-baselines, resolve-matrix]
     if: >-
       always() &&
       needs.meta.result == 'success' &&
-      needs.detect-changes.result == 'success' &&
+      needs.resolve-baselines.result == 'success' &&
       needs.resolve-matrix.result == 'success' &&
       needs.resolve-matrix.outputs.build_services != '[]'
     runs-on: ubuntu-latest
@@ -298,6 +265,8 @@ jobs:
           platforms: linux/arm64
           push: true
           build-args: ${{ steps.buildargs.outputs.args != '' && steps.buildargs.outputs.args || '' }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.meta.outputs.deploy_sha }}
           tags: |
             ${{ needs.meta.outputs.image_prefix }}-${{ matrix.service }}:${{ needs.meta.outputs.deploy_sha }}
             ${{ needs.meta.outputs.image_prefix }}-${{ matrix.service }}:latest
@@ -307,11 +276,11 @@ jobs:
   # Unchanged images are retagged (latest -> deploy SHA) without rebuilding.
   retag:
     name: retag ${{ matrix.service }}
-    needs: [meta, detect-changes, build, resolve-matrix]
+    needs: [meta, resolve-baselines, build, resolve-matrix]
     if: >-
       always() &&
       needs.meta.result == 'success' &&
-      needs.detect-changes.result == 'success' &&
+      needs.resolve-baselines.result == 'success' &&
       needs.resolve-matrix.result == 'success' &&
       needs.build.result != 'failure' &&
       needs.build.result != 'cancelled' &&
