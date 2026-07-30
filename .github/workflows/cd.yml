@@ -45,6 +45,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       api: ${{ steps.resolve.outputs.api }}
       web: ${{ steps.resolve.outputs.web }}
@@ -78,6 +79,12 @@ jobs:
           DEPLOY_SHA: ${{ needs.meta.outputs.deploy_sha }}
           IMAGE_PREFIX: ${{ needs.meta.outputs.image_prefix }}
         run: |
+          # Disable pathname expansion: the "**" globs below must reach `git diff`
+          # as literal pathspecs so git can interpret them recursively itself. Left
+          # enabled, bash pre-expands them against the checked-out worktree's current
+          # disk state instead, silently dropping any path deleted since the baseline.
+          set -f
+
           SHARED_GLOBS="package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json eslint.config.mjs"
           WORKFLOW_GLOBS=".github/workflows/cd.yml .github/workflows/ci.yml"
 
@@ -90,14 +97,21 @@ jobs:
             esac
           }
 
+          # Labels can live at two different depths depending on whether the tag resolves
+          # to a single-manifest image (.image.config.Labels) or a multi-platform index
+          # (.image.<platform>.config.Labels) — provenance attestations (on by default in
+          # docker/build-push-action@v7) attach an extra manifest even for our single-
+          # platform (linux/arm64) builds, so either shape can occur. Try flat first, then
+          # fall back to the arm64-keyed map.
           baseline_sha() {
             local service="$1"
             local image="${IMAGE_PREFIX}-${service}"
             local label
-            label="$(docker buildx imagetools inspect "${image}:latest" --format '{{json .Config.Labels}}' 2>/dev/null | jq -r '.["org.opencontainers.image.revision"] // empty' 2>/dev/null || true)"
+            label="$(docker buildx imagetools inspect "${image}:latest" --format '{{json .}}' 2>/dev/null | jq -r '(.image.config.Labels // .image["linux/arm64"].config.Labels // {}) | .["org.opencontainers.image.revision"] // empty' 2>/dev/null || true)"
             if [[ -n "$label" ]] && git cat-file -e "${label}^{commit}" 2>/dev/null; then
               echo "$label"
             fi
+            return 0
           }
 
           for service in api web bot stt; do
