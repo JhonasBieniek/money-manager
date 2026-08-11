@@ -140,7 +140,7 @@ export function IncomeList() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {incomes.map((income) => {
             const dateParts = formatDate(income.occurredAt).split(" ");
             return (

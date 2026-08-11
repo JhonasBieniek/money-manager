@@ -142,7 +142,7 @@ export function ExpenseList() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {expenses.map((expense) => {
             const dateParts = formatDate(expense.occurredAt).split(" ");
             return (
