@@ -49,25 +49,29 @@ describeWithDb("dashboard cards fatura total integration", () => {
       });
     expect(cardExpenseRes.status).toBe(201);
 
+    // Junho: nada é contabilizado. O gasto em dinheiro (10/06) é deslocado para
+    // o mês seguinte e a fatura do cartão vence em julho.
     const juneRes = await request(app)
       .get("/v1/dashboard/summary?year=2025&month=6")
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(juneRes.status).toBe(200);
-    expect(juneRes.body.totalExpenses).toBe(20_000);
-    expect(juneRes.body.expensesByCategory).toEqual(
-      expect.arrayContaining([
-        { category: "Custos Fixos", amount: 20_000 },
-        { category: "Prazeres", amount: 30_000 },
-      ]),
-    );
+    expect(juneRes.body.totalExpenses).toBe(0);
+    expect(juneRes.body.expensesByCategory).toEqual([]);
 
+    // Mês do ciclo (julho): a fatura do cartão (contada pelo ciclo) e o gasto em
+    // dinheiro de junho (deslocado +1 mês) são contabilizados aqui.
     const cycleRes = await request(app)
       .get(`/v1/dashboard/summary?year=${cycle.cycleYear}&month=${cycle.cycleMonth}`)
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(cycleRes.status).toBe(200);
-    expect(cycleRes.body.totalExpenses).toBe(30_000);
-    expect(cycleRes.body.expensesByCategory).toEqual([]);
+    expect(cycleRes.body.totalExpenses).toBe(50_000);
+    expect(cycleRes.body.expensesByCategory).toEqual(
+      expect.arrayContaining([
+        { category: "Custos Fixos", amount: 20_000 },
+        { category: "Prazeres", amount: 30_000 },
+      ]),
+    );
   });
 });

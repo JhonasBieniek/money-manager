@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthPageShell } from "../components/marketing/auth-page-shell";
+import { PasswordInput } from "../components/ui/password-input";
 import { apiFetch, setStoredAccessToken } from "../lib/api";
 
 export function LoginPage() {
@@ -63,17 +64,21 @@ export function LoginPage() {
             className="auth-input"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-300">Senha</span>
-          <input
-            type="password"
+        <div className="flex flex-col gap-1.5 text-sm">
+          <label
+            htmlFor="login-password"
+            className="font-medium text-zinc-300"
+          >
+            Senha
+          </label>
+          <PasswordInput
+            id="login-password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="auth-input"
           />
-        </label>
+        </div>
         {error ? (
           <p className="text-sm text-red-400" role="alert">
             {error}

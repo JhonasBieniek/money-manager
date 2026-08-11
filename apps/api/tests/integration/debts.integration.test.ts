@@ -132,8 +132,11 @@ describeWithDb("debts integration", () => {
     expect(createRes.status).toBe(201);
     expect(createRes.body.paidCents).toBe(0);
 
-    const year = future.getFullYear();
-    const month = future.getMonth() + 1;
+    // A parcela (não-cartão) vence em `future`, mas é contabilizada no mês
+    // seguinte. O resumo desse mês sincroniza o mês anterior e traz a parcela.
+    const billed = new Date(future.getFullYear(), future.getMonth() + 1, 1);
+    const year = billed.getFullYear();
+    const month = billed.getMonth() + 1;
 
     const summaryRes = await request(app)
       .get(`/v1/dashboard/summary?year=${year}&month=${month}`)

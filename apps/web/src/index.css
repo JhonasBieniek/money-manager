@@ -25,6 +25,31 @@
 
 html {
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/*
+ * Evita o zoom automático do iOS Safari ao focar campos de formulário: o
+ * navegador dá zoom sempre que a fonte do campo é menor que 16px. Elevamos os
+ * campos para 16px no mobile (o input de valor monetário, text-6xl, é mantido).
+ * Regra fora de @layer para vencer as utilities do Tailwind sem !important.
+ */
+@media (max-width: 640px) {
+  input:not(.text-6xl),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Remove o atraso de 300ms e o zoom por duplo-toque em elementos interativos. */
+button,
+a,
+label,
+select,
+[role="button"] {
+  touch-action: manipulation;
 }
 
 body {

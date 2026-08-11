@@ -4,6 +4,7 @@ import { GOAL_CATEGORIES } from "@money-manager/types";
 import { newId } from "@money-manager/utils";
 import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { BadRequestError } from "../../shared/errors/app-error.js";
+import { budgetMonthExpenseCondition } from "../../shared/budget-month.js";
 import type { UpsertGoalsBody } from "./goals.schema.js";
 
 type GoalRow = typeof goals.$inferSelect;
@@ -133,8 +134,9 @@ export async function getGoalUsage(
         and(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
-          gte(expenses.occurredAt, start),
-          lte(expenses.occurredAt, end),
+          // Gasto conta no mês seguinte: usa a mesma competência do dashboard
+          // (não-cartão do mês anterior + cartão pelo ciclo da fatura).
+          budgetMonthExpenseCondition(userId, year, month),
         ),
       )
       .groupBy(expenses.goalCategory),

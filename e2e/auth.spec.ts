@@ -41,7 +41,7 @@ test.describe("autenticação", () => {
 
     await page.goto("/login");
     await page.getByLabel("E-mail").fill(testUser.email);
-    await page.getByLabel("Senha").fill("WrongPassword!");
+    await page.getByLabel("Senha", { exact: true }).fill("WrongPassword!");
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page).toHaveURL(/\/login/);

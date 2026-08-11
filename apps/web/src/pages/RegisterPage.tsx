@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthPageShell } from "../components/marketing/auth-page-shell";
+import { PasswordInput } from "../components/ui/password-input";
 import { apiFetch, setStoredAccessToken } from "../lib/api";
 
 export function RegisterPage() {
@@ -65,18 +66,22 @@ export function RegisterPage() {
             className="auth-input"
           />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-300">Senha</span>
-          <input
-            type="password"
+        <div className="flex flex-col gap-1.5 text-sm">
+          <label
+            htmlFor="register-password"
+            className="font-medium text-zinc-300"
+          >
+            Senha
+          </label>
+          <PasswordInput
+            id="register-password"
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="auth-input"
           />
-        </label>
+        </div>
         <p className="text-xs text-zinc-500">Mínimo de 8 caracteres.</p>
         {error ? (
           <p className="text-sm text-red-400" role="alert">

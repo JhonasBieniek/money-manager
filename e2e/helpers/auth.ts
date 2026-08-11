@@ -17,7 +17,7 @@ export async function registerUser(
 ) {
   await page.goto("/register");
   await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(password);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
 
   const registerResponse = page.waitForResponse(
     (response) =>
@@ -39,7 +39,7 @@ export async function registerUser(
 export async function loginUser(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(password);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
 
   const loginResponse = page.waitForResponse(
     (response) =>

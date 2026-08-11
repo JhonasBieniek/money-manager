@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { nextMonthYear, selectDashboardPeriod } from "./dashboard";
 
 export type FillExpenseOptions = {
   amount: string;
@@ -60,6 +61,11 @@ export async function expectExpenseInList(page: Page, description: string) {
   ).toBeVisible();
 }
 
+/**
+ * Um gasto (não-cartão) é contabilizado no mês seguinte ao da data do gasto.
+ * Como o gasto do teste é criado hoje, navegamos até o mês seguinte no resumo
+ * para verificar que ele aparece lá.
+ */
 export async function expectExpenseOnDashboard(
   page: Page,
   formattedAmount: string,
@@ -77,6 +83,9 @@ export async function expectExpenseOnDashboard(
   await expect(
     page.getByRole("heading", { name: "Bem-vindo de volta!" }),
   ).toBeVisible();
+
+  const next = nextMonthYear();
+  await selectDashboardPeriod(page, next.month, next.year);
 
   await expect(page.getByTestId("dashboard-total-expenses")).toContainText(
     formattedAmount,

@@ -8,6 +8,10 @@ import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { syncUserDebtsForMonth } from "../debts/debts.service.js";
 import * as goalsService from "../goals/goals.service.js";
 import { todayBrtString } from "../investments/brt-date.js";
+import {
+  budgetMonthExpenseCondition,
+  previousMonth,
+} from "../../shared/budget-month.js";
 
 function monthYearRange(
   year: number,
@@ -45,8 +49,19 @@ export async function getDashboardSummary(
   month: number,
 ): Promise<DashboardSummary> {
   const db = getDb();
-  await syncUserDebtsForMonth(userId, year, month);
+  // Gastos não-cartão contam no mês seguinte: para o mês selecionado usamos os
+  // ocorridos no mês anterior. Cartão continua pelo ciclo da fatura (cycleMonth).
+  const prev = previousMonth(year, month);
+  // As parcelas de dívida auto-sincronizadas são despesas datadas no mês da
+  // parcela; como elas também deslocam +1 mês, o resumo do mês selecionado
+  // precisa garantir a sincronização do mês anterior (cujas parcelas aparecem
+  // aqui) e do próprio mês.
+  await Promise.all([
+    syncUserDebtsForMonth(userId, prev.year, prev.month),
+    syncUserDebtsForMonth(userId, year, month),
+  ]);
   const { start, end } = monthYearRange(year, month);
+  const prevRange = monthYearRange(prev.year, prev.month);
 
   const [
     incomesResult,
@@ -78,8 +93,8 @@ export async function getDashboardSummary(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
           isNull(expenses.creditCardStatementId),
-          gte(expenses.occurredAt, start),
-          lte(expenses.occurredAt, end),
+          gte(expenses.occurredAt, prevRange.start),
+          lte(expenses.occurredAt, prevRange.end),
         ),
       ),
     db
@@ -104,8 +119,7 @@ export async function getDashboardSummary(
         and(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
-          gte(expenses.occurredAt, start),
-          lte(expenses.occurredAt, end),
+          budgetMonthExpenseCondition(userId, year, month),
         ),
       )
       .groupBy(expenses.goalCategory),
@@ -158,6 +172,16 @@ export async function getDashboardHistory(
   const { start } = monthYearRange(first.year, first.monthNum);
   const { end } = monthYearRange(last.year, last.monthNum);
 
+  // Despesas não-cartão contam no mês seguinte ao gasto. Para preencher o
+  // primeiro slot precisamos também das despesas do mês anterior a ele, e
+  // agrupamos por (occurredAt + 1 mês) para deslocá-las para frente.
+  const prevOfFirst = previousMonth(first.year, first.monthNum);
+  const { start: expenseStart } = monthYearRange(
+    prevOfFirst.year,
+    prevOfFirst.month,
+  );
+  const budgetMonthExpr = sql`(${expenses.occurredAt} + interval '1 month')`;
+
   const monthKey = (year: number, monthNum: number) => `${year}-${monthNum}`;
 
   const [incomeRows, expenseRows, cardStatementRows] = await Promise.all([
@@ -182,8 +206,8 @@ export async function getDashboardHistory(
       ),
     db
       .select({
-        year: sql<number>`EXTRACT(YEAR FROM ${expenses.occurredAt})::int`,
-        monthNum: sql<number>`EXTRACT(MONTH FROM ${expenses.occurredAt})::int`,
+        year: sql<number>`EXTRACT(YEAR FROM ${budgetMonthExpr})::int`,
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${budgetMonthExpr})::int`,
         total: sql<number>`COALESCE(SUM(${expenses.amountCents}), 0)::int`,
       })
       .from(expenses)
@@ -192,13 +216,13 @@ export async function getDashboardHistory(
           eq(expenses.userId, userId),
           isNull(expenses.deletedAt),
           isNull(expenses.creditCardStatementId),
-          gte(expenses.occurredAt, start),
+          gte(expenses.occurredAt, expenseStart),
           lte(expenses.occurredAt, end),
         ),
       )
       .groupBy(
-        sql`EXTRACT(YEAR FROM ${expenses.occurredAt})`,
-        sql`EXTRACT(MONTH FROM ${expenses.occurredAt})`,
+        sql`EXTRACT(YEAR FROM ${budgetMonthExpr})`,
+        sql`EXTRACT(MONTH FROM ${budgetMonthExpr})`,
       ),
     db
       .select({

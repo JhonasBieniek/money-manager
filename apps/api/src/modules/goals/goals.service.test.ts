@@ -23,6 +23,7 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     userId: "user_id",
     amountCents: "amount_cents",
     goalCategory: "goal_category",
+    creditCardStatementId: "credit_card_statement_id",
     deletedAt: "deleted_at",
     occurredAt: "occurred_at",
   },
@@ -31,6 +32,12 @@ jest.unstable_mockModule("@money-manager/db", () => ({
     amountCents: "amount_cents",
     deletedAt: "deleted_at",
     occurredAt: "occurred_at",
+  },
+  creditCardStatements: {
+    id: "id",
+    userId: "user_id",
+    cycleYear: "cycle_year",
+    cycleMonth: "cycle_month",
   },
 }));
 

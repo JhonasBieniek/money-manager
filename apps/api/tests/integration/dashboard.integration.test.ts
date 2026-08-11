@@ -37,6 +37,8 @@ describeWithDb("dashboard integration", () => {
         occurredAt: new Date(2025, 5, 10).toISOString(),
       });
 
+    // Gastos não-cartão são contabilizados no mês seguinte: lançados em maio,
+    // aparecem no resumo de junho (junto da receita de junho).
     await request(app)
       .post("/v1/expenses")
       .set("Authorization", `Bearer ${accessToken}`)
@@ -45,7 +47,7 @@ describeWithDb("dashboard integration", () => {
         description: "Cinema",
         goalCategory: "prazeres",
         paymentMethodIndex: 0,
-        occurredAt: new Date(2025, 5, 12).toISOString(),
+        occurredAt: new Date(2025, 4, 12).toISOString(),
       });
 
     await request(app)
@@ -56,7 +58,7 @@ describeWithDb("dashboard integration", () => {
         description: "Aluguel",
         goalCategory: "custos-fixos",
         paymentMethodIndex: 0,
-        occurredAt: new Date(2025, 5, 15).toISOString(),
+        occurredAt: new Date(2025, 4, 15).toISOString(),
       });
 
     const res = await request(app)
@@ -89,6 +91,9 @@ describeWithDb("dashboard integration", () => {
     const targetYear = target.getFullYear();
     const targetMonth = target.getMonth();
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}`;
+    // O gasto conta no mês seguinte: lançado dois meses atrás, aparece no mês-alvo
+    // (mês anterior ao corrente), junto da receita lançada no próprio mês-alvo.
+    const expenseDate = new Date(now.getFullYear(), now.getMonth() - 2, 8);
 
     await request(app)
       .post("/v1/incomes")
@@ -107,7 +112,7 @@ describeWithDb("dashboard integration", () => {
         description: "Mercado",
         goalCategory: "custos-fixos",
         paymentMethodIndex: 0,
-        occurredAt: new Date(targetYear, targetMonth, 8).toISOString(),
+        occurredAt: expenseDate.toISOString(),
       });
 
     const res = await request(app)

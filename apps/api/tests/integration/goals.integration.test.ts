@@ -88,7 +88,8 @@ describeWithDb("goals integration", () => {
         description: "Aluguel",
         goalCategory: "custos-fixos",
         paymentMethodIndex: 0,
-        occurredAt: "2025-06-15T12:00:00.000Z",
+        // Gasto conta no mês seguinte: lançado em maio, aparece no uso de junho.
+        occurredAt: "2025-05-15T12:00:00.000Z",
       });
 
     const usageRes = await request(app)
@@ -130,7 +131,9 @@ describeWithDb("goals integration", () => {
         description: "Cinema",
         goalCategory: "prazeres",
         paymentMethodIndex: 0,
-        occurredAt: new Date(2025, 5, 20).toISOString(),
+        // Gasto conta no mês seguinte: lançado em maio, aparece no uso de junho
+        // (o teto usa a receita de junho).
+        occurredAt: new Date(2025, 4, 20).toISOString(),
       });
 
     const usageRes = await request(app)
