@@ -143,6 +143,14 @@ export function DebtFormModal({
 
   useEffect(() => {
     if (!open) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
 
     async function loadCards() {
       try {
@@ -429,7 +437,7 @@ export function DebtFormModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="debt-form-title"
-        className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl p-6 sm:p-8"
+        className="glass max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl p-6 sm:p-8"
       >
         <div className="mb-6 flex items-center justify-between">
           <h2 id="debt-form-title" className="text-xl font-bold text-white">

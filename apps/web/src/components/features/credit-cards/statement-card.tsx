@@ -4,8 +4,8 @@ import { apiFetch } from "../../../lib/api";
 import { cn } from "../../../lib/cn";
 import { formatFilterPeriodLabel } from "../../../lib/transaction-list-filters";
 import {
+  MoneyAmountInput,
   parseMoneyAmountInput,
-  sanitizeMoneyAmountInput,
 } from "../../ui/money-amount-input";
 import { CheckCircle2, Lock, Pencil, RotateCcw, Unlock } from "lucide-react";
 
@@ -206,19 +206,13 @@ export function StatementCard({
             <div className="mt-1">
               <div className="flex min-w-0 items-baseline gap-1 text-2xl font-bold text-emerald-400">
                 <span className="shrink-0">R$</span>
-                <input
+                <MoneyAmountInput
                   ref={totalInputRef}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
                   value={adjustedInput}
-                  onChange={(e) =>
-                    setAdjustedInput(sanitizeMoneyAmountInput(e.target.value))
-                  }
+                  onChange={setAdjustedInput}
                   onKeyDown={handleTotalKeyDown}
-                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-bold text-emerald-400 outline-none ring-0 placeholder:text-emerald-400/40 focus:ring-0"
+                  className="min-w-0 flex-1 !rounded-none !border-0 !bg-transparent !p-0 text-2xl font-bold text-emerald-400 outline-none ring-0 placeholder:text-emerald-400/40 focus:bg-transparent focus:ring-0"
                   placeholder="0,00"
-                  aria-label="Total da fatura"
                 />
               </div>
               <div className="mt-2 flex flex-wrap gap-2">

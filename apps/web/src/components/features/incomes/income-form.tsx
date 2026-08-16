@@ -35,6 +35,10 @@ interface IncomeFormProps {
   onCancel?: () => void;
 }
 
+function formatMoneyDisplay(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
 const sourceOptions = [
   { id: "salary" as IncomeSource, label: "Salário", icon: Briefcase },
   { id: "freelance" as IncomeSource, label: "Freelance", icon: TrendingUp },
@@ -47,7 +51,9 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState(
-    initialData?.amountCents ? (initialData.amountCents / 100).toString() : "",
+    initialData?.amountCents
+      ? formatMoneyDisplay(initialData.amountCents / 100)
+      : "",
   );
   const [description, setDescription] = useState(
     initialData?.description || "",

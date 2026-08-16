@@ -61,6 +61,10 @@ const goalCategoryOptions = GOAL_CATEGORIES.map((value) => ({
   label: GOAL_CATEGORY_LABELS[value],
 }));
 
+function formatMoneyDisplay(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
 interface CreditCardOption {
   id: string;
   name: string;
@@ -76,7 +80,9 @@ export function ExpenseForm({ initialData, onSuccess, onCancel }: ExpenseFormPro
     initialData?.tagIds ?? [],
   );
   const [amount, setAmount] = useState(
-    initialData?.amountCents ? (initialData.amountCents / 100).toString() : "",
+    initialData?.amountCents
+      ? formatMoneyDisplay(initialData.amountCents / 100)
+      : "",
   );
   const [description, setDescription] = useState(
     initialData?.description || "",

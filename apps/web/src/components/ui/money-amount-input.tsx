@@ -1,27 +1,42 @@
-import { forwardRef, type KeyboardEvent } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import { cn } from "../../lib/cn";
 
-/** Permite apenas dígitos e um separador decimal (vírgula ou ponto). */
-export function sanitizeMoneyAmountInput(raw: string): string {
-  const value = raw.replace(/[^\d.,]/g, "");
-  const separatorIndex = value.search(/[.,]/);
+const MAX_DIGITS = 15;
 
-  if (separatorIndex === -1) {
-    return value;
-  }
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
 
-  const intPart = value.slice(0, separatorIndex).replace(/[.,]/g, "");
-  const separator = value[separatorIndex];
-  const decPart = value
-    .slice(separatorIndex + 1)
-    .replace(/[.,]/g, "")
-    .slice(0, 2);
+/** Formata uma string de dígitos (representando centavos) como "1.234,56". */
+export function formatMoneyDigits(rawDigits: string): string {
+  const digits = onlyDigits(rawDigits).replace(/^0+(?=\d)/, "");
+  if (!digits) return "";
 
-  return `${intPart}${separator}${decPart}`;
+  const padded = digits.padStart(3, "0");
+  const cents = padded.slice(-2);
+  const intPart = padded.slice(0, -2).replace(/^0+(?=\d)/, "") || "0";
+  const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  return `${withThousands},${cents}`;
+}
+
+/** Converte um valor "1234,56"/"1234.56" (sem separador de milhar) em dígitos de centavos. */
+function amountToDigits(value: string): string {
+  if (!value.trim()) return "";
+  const parsed = parseMoneyAmountInput(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return "";
+  return String(Math.round(parsed * 100));
 }
 
 export function parseMoneyAmountInput(value: string): number {
-  const normalized = value.trim().replace(",", ".");
+  const normalized = value.trim().replace(/\./g, "").replace(",", ".");
   return parseFloat(normalized);
 }
 
@@ -46,17 +61,51 @@ export const MoneyAmountInput = forwardRef<
     className,
     onKeyDown,
   },
-  ref,
+  forwardedRef,
 ) {
+  const [digits, setDigits] = useState(() => amountToDigits(value));
+  const [syncedValue, setSyncedValue] = useState(value);
+  const innerRef = useRef<HTMLInputElement | null>(null);
+
+  // `value` mudou por fora (edição carregada, campo resetado, valor
+  // recalculado a partir de outro input) — resincroniza os dígitos internos.
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setDigits(amountToDigits(value));
+  }
+
+  const display = formatMoneyDigits(digits);
+
+  useEffect(() => {
+    const input = innerRef.current;
+    if (!input || document.activeElement !== input) return;
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  });
+
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    const nextDigits = onlyDigits(e.target.value)
+      .replace(/^0+(?=\d)/, "")
+      .slice(-MAX_DIGITS);
+    const formatted = formatMoneyDigits(nextDigits);
+    setDigits(nextDigits);
+    setSyncedValue(formatted);
+    onChange(formatted);
+  }
+
   return (
     <input
-      ref={ref}
+      ref={(node) => {
+        innerRef.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      }}
       type="text"
-      inputMode="decimal"
+      inputMode="numeric"
       autoComplete="off"
       required={required}
-      value={value}
-      onChange={(e) => onChange(sanitizeMoneyAmountInput(e.target.value))}
+      value={display}
+      onChange={handleChange}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
       className={cn(

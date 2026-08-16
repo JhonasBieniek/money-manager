@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { BadRequestError } from "../../shared/errors/app-error.js";
 import {
+  isFutureBrtMonth,
   resolveCurrentBrtMonth,
   resolveInstallmentCentsForUpdate,
 } from "./debts.service.js";
@@ -97,5 +98,31 @@ describe("resolveCurrentBrtMonth", () => {
         process.env.TZ = originalTz;
       }
     }
+  });
+});
+
+describe("isFutureBrtMonth", () => {
+  // now = 2026-06-15 (BRT)
+  const now = new Date("2026-06-15T15:00:00.000Z");
+
+  it("não considera futuro o próprio mês corrente", () => {
+    expect(isFutureBrtMonth(2026, 6, now)).toBe(false);
+  });
+
+  it("não considera futuro um mês anterior", () => {
+    expect(isFutureBrtMonth(2026, 5, now)).toBe(false);
+    expect(isFutureBrtMonth(2025, 12, now)).toBe(false);
+  });
+
+  it("considera futuro o mês seguinte", () => {
+    expect(isFutureBrtMonth(2026, 7, now)).toBe(true);
+  });
+
+  it("considera futuro um mês em ano seguinte", () => {
+    expect(isFutureBrtMonth(2027, 1, now)).toBe(true);
+  });
+
+  it("considera futuro um mês do mesmo ano ainda não chegado", () => {
+    expect(isFutureBrtMonth(2026, 12, now)).toBe(true);
   });
 });

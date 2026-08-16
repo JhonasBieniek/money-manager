@@ -321,6 +321,13 @@ export async function syncUserDebtsForMonth(
   year: number,
   month: number,
 ): Promise<void> {
+  if (isFutureBrtMonth(year, month, new Date())) {
+    // Chamadores como o resumo do dashboard e a listagem de despesas aceitam
+    // year/month arbitrários (navegação livre entre meses). Sincronizar um
+    // mês que ainda não chegou quitaria parcelas de dívida antes da hora.
+    return;
+  }
+
   const activeDebts = await getDb()
     .select()
     .from(debts)
@@ -350,6 +357,17 @@ export function resolveCurrentBrtMonth(now: Date): {
 } {
   const [year, month] = todayBrtString(now).split("-").map(Number);
   return { year: year!, month: month! };
+}
+
+export function isFutureBrtMonth(
+  year: number,
+  month: number,
+  now: Date,
+): boolean {
+  const current = resolveCurrentBrtMonth(now);
+  return (
+    year > current.year || (year === current.year && month > current.month)
+  );
 }
 
 async function syncUserDebtsForCurrentMonth(userId: string): Promise<void> {

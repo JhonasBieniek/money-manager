@@ -66,7 +66,7 @@ describeWithDb("debts integration", () => {
     )).toBe(true);
   });
 
-  it("GET /v1/expenses com mês futuro dispara sync de parcelas", async () => {
+  it("GET /v1/expenses com mês futuro não antecipa sync de parcelas", async () => {
     const { accessToken } = await registerUser(app);
     const now = new Date();
     const future = new Date(now.getFullYear(), now.getMonth() + 2, 15);
@@ -90,6 +90,9 @@ describeWithDb("debts integration", () => {
     const year = future.getFullYear();
     const month = future.getMonth() + 1;
 
+    // Navegar a listagem de despesas até o mês da parcela (ainda não
+    // alcançado pelo calendário real) não pode quitá-la antecipadamente —
+    // era isso que fazia as parcelas de dívida aparecerem "adiantadas".
     const expensesRes = await request(app)
       .get(`/v1/expenses?year=${year}&month=${month}`)
       .set("Authorization", `Bearer ${accessToken}`);
@@ -99,7 +102,7 @@ describeWithDb("debts integration", () => {
       expensesRes.body.items.some((item: { description: string }) =>
         item.description.includes("Parcela futura"),
       ),
-    ).toBe(true);
+    ).toBe(false);
 
     const debtsRes = await request(app)
       .get("/v1/debts")
@@ -108,10 +111,10 @@ describeWithDb("debts integration", () => {
     const debt = debtsRes.body.items.find(
       (item: { name: string }) => item.name === "Parcela futura",
     );
-    expect(debt.paidCents).toBe(7500);
+    expect(debt.paidCents).toBe(0);
   });
 
-  it("GET /v1/dashboard/summary dispara sync do mês consultado", async () => {
+  it("GET /v1/dashboard/summary com mês futuro não antecipa sync de parcelas", async () => {
     const { accessToken } = await registerUser(app);
     const now = new Date();
     const future = new Date(now.getFullYear(), now.getMonth() + 3, 10);
@@ -132,8 +135,10 @@ describeWithDb("debts integration", () => {
     expect(createRes.status).toBe(201);
     expect(createRes.body.paidCents).toBe(0);
 
-    // A parcela (não-cartão) vence em `future`, mas é contabilizada no mês
-    // seguinte. O resumo desse mês sincroniza o mês anterior e traz a parcela.
+    // A parcela (não-cartão) vence em `future`, um mês que o calendário real
+    // ainda não alcançou. Consultar o resumo desse mês (ou do seguinte, por
+    // causa do deslocamento de competência) não pode sincronizar/quitar a
+    // parcela antes da hora.
     const billed = new Date(future.getFullYear(), future.getMonth() + 1, 1);
     const year = billed.getFullYear();
     const month = billed.getMonth() + 1;
@@ -143,7 +148,15 @@ describeWithDb("debts integration", () => {
       .set("Authorization", `Bearer ${accessToken}`);
 
     expect(summaryRes.status).toBe(200);
-    expect(summaryRes.body.totalExpenses).toBeGreaterThanOrEqual(4000);
+    expect(summaryRes.body.totalExpenses).toBe(0);
+
+    const debtsRes = await request(app)
+      .get("/v1/debts")
+      .set("Authorization", `Bearer ${accessToken}`);
+    const debt = debtsRes.body.items.find(
+      (item: { name: string }) => item.name === "Sync dashboard",
+    );
+    expect(debt.paidCents).toBe(0);
   });
 
   it("GET /v1/debts lista dívidas do usuário", async () => {

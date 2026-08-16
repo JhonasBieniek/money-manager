@@ -37,7 +37,7 @@ export function InstallmentList({ items, onToggle }: InstallmentListProps) {
       <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-500">
         Parcelas
       </label>
-      <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-2xl border border-white/5 bg-white/5 p-2">
+      <div className="max-h-64 space-y-1.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/5 bg-white/5 p-2">
         {items.map((item) => (
           <button
             key={item.key}
